@@ -2,14 +2,22 @@
 
 use std::fmt;
 
+/// Terms of the language.
 #[derive(PartialEq, Debug, Clone)]
 pub enum Term {
+    /// true
     True,
+    /// false
     False,
+    /// if t1 then t2 else t3
     If(Box<Term>, Box<Term>, Box<Term>),
+    /// 0
     Zero,
+    /// succ t1
     Succ(Box<Term>),
+    /// pred t1
     Pred(Box<Term>),
+    /// iszero t1
     IsZero(Box<Term>),
 }
 

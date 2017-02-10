@@ -14,9 +14,9 @@ use Term::*;
 /// assert_eq!(True, eval(If(Box::new(IsZero(Box::new(Zero))), Box::new(True), Box::new(False))));
 /// ```
 pub fn eval(t: Term) -> Term {
-    match eval1(t) {
+    match eval1(t.clone()) {
         Ok(t_prime) => eval(t_prime),
-        Err(Error::NoRuleApplies(t)) => t,
+        _ => t,
     }
 }
 
@@ -182,5 +182,12 @@ mod tests {
         let iszero_pred_zero = IsZero(Box::new(Pred(Box::new(Zero))));
 
         assert_eq!(True, eval(iszero_pred_zero));
+    }
+
+    #[test]
+    fn eval_evaluates_succ_zero_to_itself() {
+        let succ_zero = Succ(Box::new(Zero));
+
+        assert_eq!(Succ(Box::new(Zero)), eval(succ_zero));
     }
 }
