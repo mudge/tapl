@@ -5,19 +5,19 @@ use std::fmt;
 /// Terms of the language.
 #[derive(PartialEq, Debug, Clone)]
 pub enum Term {
-    /// true
+    /// The term for boolean `true`
     True,
-    /// false
+    /// The term for boolean `false`
     False,
-    /// if t1 then t2 else t3
+    /// The term for the conditional `if t1 then t2 else t3`
     If(Box<Term>, Box<Term>, Box<Term>),
-    /// 0
+    /// The term for the number 0
     Zero,
-    /// succ t1
+    /// The term for successor `succ t1`
     Succ(Box<Term>),
-    /// pred t1
+    /// The term for predecessor `pred t1`
     Pred(Box<Term>),
-    /// iszero t1
+    /// The term for the predicate `iszero t1`
     IsZero(Box<Term>),
 }
 

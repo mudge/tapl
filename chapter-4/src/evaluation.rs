@@ -24,22 +24,44 @@ pub fn eval(t: Term) -> Term {
 /// `Error` if no further rules apply.
 fn eval1(t: Term) -> Result<Term> {
     match t {
-        If(t1, t2, t3) => match *t1 {
-            True => Ok(*t2),
-            False => Ok(*t3),
-            _ => Ok(If(Box::new(eval1(*t1)?), t2, t3)),
-        },
-        Succ(t1) => Ok(Succ(Box::new(eval1(*t1)?))),
-        Pred(t1) => match *t1 {
-            Zero => Ok(Zero),
-            Succ(ref nv1) if is_numeric_val(&**nv1) => Ok(*(*nv1).clone()),
-            _ => Ok(Pred(Box::new(eval1(*t1)?))),
-        },
-        IsZero(t1) => match *t1 {
-            Zero => Ok(True),
-            Succ(ref nv1) if is_numeric_val(&**nv1) => Ok(False),
-            _ => Ok(IsZero(Box::new(eval1(*t1)?))),
-        },
+        If(t1, t2, t3) => {
+            match *t1 {
+                True => Ok(*t2),
+                False => Ok(*t3),
+                _ => {
+                    let t_prime = eval1(*t1)?;
+
+                    Ok(If(Box::new(t_prime), t2, t3))
+                }
+            }
+        }
+        Succ(t1) => {
+            let t_prime = eval1(*t1)?;
+
+            Ok(Succ(Box::new(t_prime)))
+        }
+        Pred(t1) => {
+            match *t1 {
+                Zero => Ok(Zero),
+                Succ(ref nv1) if is_numeric_val(nv1.as_ref()) => Ok(*(nv1.clone())),
+                _ => {
+                    let t_prime = eval1(*t1)?;
+
+                    Ok(Pred(Box::new(t_prime)))
+                }
+            }
+        }
+        IsZero(t1) => {
+            match *t1 {
+                Zero => Ok(True),
+                Succ(ref nv1) if is_numeric_val(nv1.as_ref()) => Ok(False),
+                _ => {
+                    let t_prime = eval1(*t1)?;
+
+                    Ok(IsZero(Box::new(t_prime)))
+                }
+            }
+        }
         _ => Err(Error::NoRuleApplies(t)),
     }
 }
@@ -47,8 +69,7 @@ fn eval1(t: Term) -> Result<Term> {
 /// Return whether a given `Term` is a value or not.
 fn is_val(t: &Term) -> bool {
     match *t {
-        True => true,
-        False => true,
+        True | False => true,
         ref t if is_numeric_val(t) => true,
         _ => false,
     }
@@ -58,7 +79,7 @@ fn is_val(t: &Term) -> bool {
 fn is_numeric_val(t: &Term) -> bool {
     match *t {
         Zero => true,
-        Succ(ref t1) => is_numeric_val(&*t1),
+        Succ(ref t1) => is_numeric_val(t1.as_ref()),
         _ => false,
     }
 }
@@ -131,10 +152,13 @@ mod tests {
 
     #[test]
     fn eval1_evaluates_if_iszero_zero_to_if_true() {
-        let if_iszero_zero = If(Box::new(IsZero(Box::new(Zero))), Box::new(True), Box::new(False));
+        let if_iszero_zero = If(Box::new(IsZero(Box::new(Zero))),
+                                Box::new(True),
+                                Box::new(False));
         let evaluation = eval1(if_iszero_zero).expect("Should not error");
 
-        assert_eq!(If(Box::new(True), Box::new(True), Box::new(False)), evaluation);
+        assert_eq!(If(Box::new(True), Box::new(True), Box::new(False)),
+                   evaluation);
     }
 
     #[test]
