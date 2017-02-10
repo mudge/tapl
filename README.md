@@ -1,3 +1,3 @@
-# Rust Implementation of TAPL arith
+# Types and Programming Languages
 
-A work-in-progress implementation in Rust of the [`arith`](https://www.cis.upenn.edu/~bcpierce/tapl/checkers/arith/core.ml) language from [Benjamin C. Pierce's "Types and Programming Languages"](https://www.cis.upenn.edu/~bcpierce/tapl/).
+Various bits and pieces as I attempt to read and understand [Benjamin C. Pierce's "Types and Programming Languages"](https://www.cis.upenn.edu/~bcpierce/tapl/) as part of [London Computation Club](http://london.computation.club).

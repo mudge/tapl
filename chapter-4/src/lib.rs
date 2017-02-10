@@ -1,10 +1,10 @@
 #[derive(PartialEq, Debug)]
-enum Error {
-    NoRuleApplies,
+pub enum Error {
+    NoRuleApplies(Term),
 }
 
 #[derive(PartialEq, Debug, Clone)]
-enum Term {
+pub enum Term {
     True,
     False,
     If(Box<Term>, Box<Term>, Box<Term>),
@@ -12,6 +12,13 @@ enum Term {
     Succ(Box<Term>),
     Pred(Box<Term>),
     IsZero(Box<Term>),
+}
+
+pub fn eval(t: Term) -> Term {
+    match eval1(t) {
+        Ok(t_prime) => eval(t_prime),
+        Err(Error::NoRuleApplies(t)) => t,
+    }
 }
 
 fn eval1(t: Term) -> Result<Term, Error> {
@@ -32,7 +39,7 @@ fn eval1(t: Term) -> Result<Term, Error> {
             Term::Succ(ref nv1) if is_numeric_val(&**nv1) => Ok(Term::False),
             _ => Ok(Term::IsZero(Box::new(eval1(*t1)?))),
         },
-        _ => Err(Error::NoRuleApplies),
+        _ => Err(Error::NoRuleApplies(t)),
     }
 }
 
@@ -164,5 +171,12 @@ mod tests {
         let evaluation = eval1(pred_succ_zero).expect("Should not error");
 
         assert_eq!(Term::Zero, evaluation);
+    }
+
+    #[test]
+    fn eval_evaluates_iszero_pred_zero_to_true() {
+        let iszero_pred_zero = Term::IsZero(Box::new(Term::Pred(Box::new(Term::Zero))));
+
+        assert_eq!(Term::True, eval(iszero_pred_zero));
     }
 }
