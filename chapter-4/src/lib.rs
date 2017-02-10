@@ -1,4 +1,5 @@
 #![warn(missing_docs)]
+#![feature(box_syntax, box_patterns)]
 
 //! A Rust implementation of chapter 4 of Benjamin C. Pierce's "Types and Programming Languages"
 //! `arith` language.
@@ -12,12 +13,13 @@
 //! according to our evaluation rules until no rule applies.
 //!
 //! ```rust
+//! #![feature(box_syntax, box_patterns)]
 //! use arith::eval;
 //! use arith::Term::{Succ, Pred, Zero, IsZero, True};
 //!
-//! let succ_zero = Succ(Box::new(Zero));
-//! let pred_succ_zero = Pred(Box::new(succ_zero));
-//! let iszero_pred_succ_zero = IsZero(Box::new(pred_succ_zero));
+//! let succ_zero = Succ(box Zero);
+//! let pred_succ_zero = Pred(box succ_zero);
+//! let iszero_pred_succ_zero = IsZero(box pred_succ_zero);
 //!
 //! assert_eq!(True, eval(iszero_pred_succ_zero));
 //! ```
