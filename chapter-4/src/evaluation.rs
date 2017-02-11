@@ -15,10 +15,7 @@ use Term::{True, False, If, Zero, Succ, Pred, IsZero};
 /// assert_eq!(True, eval(If(box IsZero(box Zero), box True, box False)));
 /// ```
 pub fn eval(t: Term) -> Term {
-    match eval1(t.clone()) {
-        Some(t_prime) => eval(t_prime),
-        None => t,
-    }
+    eval1(t.clone()).map_or(t, eval)
 }
 
 /// Evaluate a single evaluation rule against a given `Term` returning either a some new `Term` or
