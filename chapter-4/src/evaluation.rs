@@ -37,6 +37,7 @@ fn eval1(t: Term) -> Option<Term> {
 }
 
 /// Return whether a given `Term` is a value or not.
+#[allow(dead_code)]
 fn is_val(t: &Term) -> bool {
     match *t {
         True | False => true,
@@ -56,7 +57,6 @@ fn is_numeric_val(t: &Term) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use Term::*;
     use super::*;
 
     #[test]
