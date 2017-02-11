@@ -24,38 +24,8 @@
 //! assert_eq!(True, eval(iszero_pred_succ_zero));
 //! ```
 
-use std::error;
-use std::fmt;
-use std::result;
-
 pub use syntax::Term;
 pub use evaluation::eval;
 
 mod syntax;
 mod evaluation;
-
-/// A type alias for `Result` so we can fix the error type to `Error`.
-pub type Result<T> = result::Result<T, Error>;
-
-/// The possible errors raised during evaluation.
-#[derive(PartialEq, Debug)]
-pub enum Error {
-    /// An error when no evaluation rule exists for the given `Term`.
-    NoRuleApplies(Term),
-}
-
-impl error::Error for Error {
-    fn description(&self) -> &str {
-        match *self {
-            Error::NoRuleApplies(_) => "no evaluation rule applies",
-        }
-    }
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Error::NoRuleApplies(ref term) => write!(f, "no evaluation applies for term {}", term),
-        }
-    }
-}

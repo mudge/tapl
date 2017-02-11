@@ -1,7 +1,7 @@
 //! The evaluation rules for this language.
 
-use {Error, Result, Term};
-use Term::*;
+use Term;
+use Term::{True, False, If, Zero, Succ, Pred, IsZero};
 
 /// Evaluate a term according to the evaluation rules until no further rules apply.
 ///
@@ -16,42 +16,26 @@ use Term::*;
 /// ```
 pub fn eval(t: Term) -> Term {
     match eval1(t.clone()) {
-        Ok(t_prime) => eval(t_prime),
-        _ => t,
+        Some(t_prime) => eval(t_prime),
+        None => t,
     }
 }
 
-/// Evaluate a single evaluation rule against a given `Term` returning either a new `Term` or an
-/// `Error` if no further rules apply.
-fn eval1(t: Term) -> Result<Term> {
+/// Evaluate a single evaluation rule against a given `Term` returning either a some new `Term` or
+/// nothing if no further rules apply.
+fn eval1(t: Term) -> Option<Term> {
     match t {
-        If(box True, box t2, _) => Ok(t2),
-        If(box False, _, box t3) => Ok(t3),
-        If(box t1, t2, t3) => {
-            let t_prime = eval1(t1)?;
-
-            Ok(If(box t_prime, t2, t3))
-        }
-        Succ(box t1) => {
-            let t_prime = eval1(t1)?;
-
-            Ok(Succ(box t_prime))
-        }
-        Pred(box Zero) => Ok(Zero),
-        Pred(box Succ(box ref nv1)) if is_numeric_val(nv1) => Ok(nv1.clone()),
-        Pred(box t1) => {
-            let t_prime = eval1(t1)?;
-
-            Ok(Pred(box t_prime))
-        }
-        IsZero(box Zero) => Ok(True),
-        IsZero(box Succ(box ref nv1)) if is_numeric_val(nv1) => Ok(False),
-        IsZero(box t1) => {
-            let t_prime = eval1(t1)?;
-
-            Ok(IsZero(box t_prime))
-        }
-        _ => Err(Error::NoRuleApplies(t)),
+        If(box True, box t2, _) => Some(t2),
+        If(box False, _, box t3) => Some(t3),
+        If(box t1, t2, t3) => eval1(t1).map(|t_prime| If(box t_prime, t2, t3)),
+        Succ(box t1) => eval1(t1).map(|t_prime| Succ(box t_prime)),
+        Pred(box Zero) => Some(Zero),
+        Pred(box Succ(box ref nv1)) if is_numeric_val(nv1) => Some(nv1.clone()),
+        Pred(box t1) => eval1(t1).map(|t_prime| Pred(box t_prime)),
+        IsZero(box Zero) => Some(True),
+        IsZero(box Succ(box ref nv1)) if is_numeric_val(nv1) => Some(False),
+        IsZero(box t1) => eval1(t1).map(|t_prime| IsZero(box t_prime)),
+        _ => None,
     }
 }
 
