@@ -25,29 +25,29 @@ pub fn eval(t: Term) -> Term {
 /// `Error` if no further rules apply.
 fn eval1(t: Term) -> Result<Term> {
     match t {
-        If(box True, t2, _) => Ok(*t2),
-        If(box False, _, t3) => Ok(*t3),
-        If(t1, t2, t3) => {
-            let t_prime = eval1(*t1)?;
+        If(box True, box t2, _) => Ok(t2),
+        If(box False, _, box t3) => Ok(t3),
+        If(box t1, t2, t3) => {
+            let t_prime = eval1(t1)?;
 
             Ok(If(box t_prime, t2, t3))
         }
-        Succ(t1) => {
-            let t_prime = eval1(*t1)?;
+        Succ(box t1) => {
+            let t_prime = eval1(t1)?;
 
             Ok(Succ(box t_prime))
         }
         Pred(box Zero) => Ok(Zero),
-        Pred(box Succ(ref nv1)) if is_numeric_val(nv1.as_ref()) => Ok(*(nv1.clone())),
-        Pred(t1) => {
-            let t_prime = eval1(*t1)?;
+        Pred(box Succ(box ref nv1)) if is_numeric_val(nv1) => Ok(nv1.clone()),
+        Pred(box t1) => {
+            let t_prime = eval1(t1)?;
 
             Ok(Pred(box t_prime))
         }
         IsZero(box Zero) => Ok(True),
-        IsZero(box Succ(ref nv1)) if is_numeric_val(nv1.as_ref()) => Ok(False),
-        IsZero(t1) => {
-            let t_prime = eval1(*t1)?;
+        IsZero(box Succ(box ref nv1)) if is_numeric_val(nv1) => Ok(False),
+        IsZero(box t1) => {
+            let t_prime = eval1(t1)?;
 
             Ok(IsZero(box t_prime))
         }
@@ -68,7 +68,7 @@ fn is_val(t: &Term) -> bool {
 fn is_numeric_val(t: &Term) -> bool {
     match *t {
         Zero => true,
-        Succ(ref t1) => is_numeric_val(t1.as_ref()),
+        Succ(box ref t1) => is_numeric_val(t1),
         _ => false,
     }
 }
@@ -119,6 +119,11 @@ mod tests {
     }
 
     #[test]
+    fn is_val_returns_true_for_succ_succ_zero() {
+        assert!(is_val(&Succ(box Succ(box Zero))));
+    }
+
+    #[test]
     fn is_val_returns_false_for_conditionals() {
         assert!(!is_val(&If(box True, box True, box True)));
     }
@@ -141,13 +146,10 @@ mod tests {
 
     #[test]
     fn eval1_evaluates_if_iszero_zero_to_if_true() {
-        let if_iszero_zero = If(box IsZero(box Zero),
-                                box True,
-                                box False);
+        let if_iszero_zero = If(box IsZero(box Zero), box True, box False);
         let evaluation = eval1(if_iszero_zero).expect("Should not error");
 
-        assert_eq!(If(box True, box True, box False),
-                   evaluation);
+        assert_eq!(If(box True, box True, box False), evaluation);
     }
 
     #[test]
