@@ -24,6 +24,6 @@ fn main() {
 Produces:
 
 ```
-Source program:    if iszero pred succ 0 then succ succ 0 else false
+Source program:    if iszero pred succ 0 then succ succ pred 0 else false
 Evaluated program: succ succ 0
 ```
