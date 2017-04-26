@@ -22,22 +22,15 @@ pub fn type_of(t: Term) -> Option<Type> {
             } else {
                 None
             }
-        },
+        }
         Zero => Some(Nat),
-        Succ(box t1) => {
+        Succ(box t1) | Pred(box t1) => {
             if type_of(t1) == Some(Nat) {
                 Some(Nat)
             } else {
                 None
             }
-        },
-        Pred(box t1) => {
-            if type_of(t1) == Some(Nat) {
-                Some(Nat)
-            } else {
-                None
-            }
-        },
+        }
         IsZero(box t1) => {
             if type_of(t1) == Some(Nat) {
                 Some(Bool)
@@ -45,7 +38,6 @@ pub fn type_of(t: Term) -> Option<Type> {
                 None
             }
         }
-        _ => None,
     }
 }
 
