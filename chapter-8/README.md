@@ -17,7 +17,10 @@ fn main() {
                      box Zero);
 
     println!("Source program:    {}", program);
-    println!("Type of program:   {}", type_of(program).expect("Does not type-check!"));
+    match type_of(program) {
+        Ok(t) => println!("Type of program:   {}", t),
+        Err(error) => println!("Type error:        {}", error),
+    }
 }
 ```
 
@@ -26,4 +29,11 @@ Produces:
 ```
 Source program:    if iszero pred succ 0 then succ succ pred 0 else 0
 Type of program:   Nat
+```
+
+And with a badly-typed program:
+
+```
+Source program:    if iszero pred succ 0 then succ succ pred true else 0
+Type error:        if statement with arms resulting in different types
 ```
