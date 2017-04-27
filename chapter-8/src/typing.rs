@@ -12,10 +12,11 @@ pub fn type_of(t: Term) -> Result<Type> {
         True | False => Ok(Type::Bool),
         If(box t1, box t2, box t3) => {
             if type_of(t1) == Ok(Type::Bool) {
-                let t2_type = type_of(t2);
+                let t2_type = type_of(t2)?;
+                let t3_type = type_of(t3)?;
 
-                if t2_type == type_of(t3) {
-                    t2_type
+                if t2_type == t3_type {
+                    Ok(t2_type)
                 } else {
                     Err(Error::MismatchingArms)
                 }
@@ -25,21 +26,27 @@ pub fn type_of(t: Term) -> Result<Type> {
         }
         Zero => Ok(Type::Nat),
         Succ(box t1) => {
-            if type_of(t1) == Ok(Type::Nat) {
+            let t1_type = type_of(t1)?;
+
+            if t1_type == Type::Nat {
                 Ok(Type::Nat)
             } else {
                 Err(Error::NonNumericSucc)
             }
         }
         Pred(box t1) => {
-            if type_of(t1) == Ok(Type::Nat) {
+            let t1_type = type_of(t1)?;
+
+            if t1_type == Type::Nat {
                 Ok(Type::Nat)
             } else {
                 Err(Error::NonNumericPred)
             }
         }
         IsZero(box t1) => {
-            if type_of(t1) == Ok(Type::Nat) {
+            let t1_type = type_of(t1)?;
+
+            if t1_type == Type::Nat {
                 Ok(Type::Bool)
             } else {
                 Err(Error::NonNumericIsZero)
@@ -134,5 +141,33 @@ mod tests {
         let t = type_of(IsZero(box True));
 
         assert_eq!(Err(Error::NonNumericIsZero), t);
+    }
+
+    #[test]
+    fn type_of_nested_bad_typed_if_is_innermost_error() {
+        let t = type_of(If(box True, box Succ(box True), box False));
+
+        assert_eq!(Err(Error::NonNumericSucc), t);
+    }
+
+    #[test]
+    fn type_of_nested_bad_succ_is_innermost_error() {
+        let t = type_of(Succ(box Pred(box True)));
+
+        assert_eq!(Err(Error::NonNumericPred), t);
+    }
+
+    #[test]
+    fn type_of_nested_bad_pred_is_innermost_error() {
+        let t = type_of(Pred(box Succ(box True)));
+
+        assert_eq!(Err(Error::NonNumericSucc), t);
+    }
+
+    #[test]
+    fn type_of_nested_bad_iszero_is_innermost_error() {
+        let t = type_of(IsZero(box Succ(box True)));
+
+        assert_eq!(Err(Error::NonNumericSucc), t);
     }
 }

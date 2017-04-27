@@ -35,5 +35,5 @@ And with a badly-typed program:
 
 ```
 Source program:    if iszero pred succ 0 then succ succ pred true else 0
-Type error:        if statement with arms resulting in different types
+Type error:        pred with a non-numeric argument
 ```
