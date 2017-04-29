@@ -154,4 +154,28 @@ mod tests {
         assert_eq!("((λ. (λ. (1 0))) (λ. 2))", format!("{}", term));
         assert_eq!("(λ. ((λ. 3) 0))", format!("{}", result));
     }
+
+    #[test]
+    fn evaluating_a_more_complicated_term() {
+        let term = Term::App(
+            box Term::Abs(box Term::Var(0)),
+            box Term::App(
+                box Term::Abs(box Term::Var(0)),
+                box Term::Abs(
+                    box Term::App(
+                        box Term::Abs(box Term::Var(1)),
+                        box Term::Var(0)
+                    )
+                )
+            )
+        );
+
+        let result = eval1(&term).expect("Should not error");
+        let result_2 = eval1(&result).expect("Should not error");
+
+        assert_eq!("((λ. 0) ((λ. 0) (λ. ((λ. 1) 0))))", format!("{}", term));
+        assert_eq!("((λ. 0) (λ. ((λ. 1) 0)))", format!("{}", result));
+        assert_eq!("(λ. ((λ. 1) 0))", format!("{}", result_2));
+        assert_eq!("(λ. ((λ. 1) 0))", format!("{}", eval(&term)));
+    }
 }
