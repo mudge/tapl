@@ -10,7 +10,7 @@ fn main() {
                      box Zero);
 
     println!("Source program:    {}", program);
-    match type_of(program) {
+    match type_of(&program) {
         Ok(t) => println!("Type of program:   {}", t),
         Err(error) => println!("Type error:        {}", error),
     }
