@@ -17,7 +17,7 @@ fn main() {
                      box False);
 
     println!("Source program:    {}", program);
-    println!("Evaluated program: {}", eval(program));
+    println!("Evaluated program: {}", eval(&program));
 }
 ```
 

@@ -21,7 +21,7 @@
 //! let pred_succ_zero = Pred(box succ_zero);
 //! let iszero_pred_succ_zero = IsZero(box pred_succ_zero);
 //!
-//! assert_eq!(True, eval(iszero_pred_succ_zero));
+//! assert_eq!(True, eval(&iszero_pred_succ_zero));
 //! ```
 
 pub use syntax::Term;
