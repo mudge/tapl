@@ -14,29 +14,32 @@ use untyped::Term::*;
 fn main() {
     let ctx = Vec::new();
     let term = App(
-        box Abs("x".to_owned(), box Var(0)),
+        box Abs("x".into(), box Var(0)),
         box App(
-            box Abs("x".to_owned(), box Var(0)),
+            box Abs("x".into(), box Var(0)),
             box Abs(
-                "z".to_owned(),
+                "z".into(),
                 box App(
-                    box Abs("x".to_owned(), box Var(1)),
+                    box Abs("x".into(), box Var(1)),
                     box Var(0)
                 )
             )
         )
     );
+    let evaluated_term = eval(&term);
 
-    println!("Source term:    {}", term);
-    println!("Evaluated term: {}", eval(&term));
-    println!("Pretty term:    {}", print_term(&ctx, &term));
+    println!("Source term:           {}", term);
+    println!("Pretty term:           {}", print_term(&ctx, &term));
+    println!("Evaluated term:        {}", evaluated_term);
+    println!("Pretty evaluated term: {}", print_term(&ctx, &evaluated_term));
 }
 ```
 
 Produces:
 
 ```
-Source term:    ((λ. 0) ((λ. 0) (λ. ((λ. 1) 0))))
-Evaluated term: (λ. ((λ. 1) 0))
-Pretty term:    ((λx. x) ((λx. x) (λz. ((λx. x) z))))
+Source term:           ((λ. 0) ((λ. 0) (λ. ((λ. 1) 0))))
+Pretty term:           ((λx. x) ((λx. x) (λz. ((λx. x) z))))
+Evaluated term:        (λ. ((λ. 1) 0))
+Pretty evaluated term: (λz. ((λx. x) z))
 ```

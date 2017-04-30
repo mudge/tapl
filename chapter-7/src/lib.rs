@@ -31,7 +31,7 @@ pub fn print_term(ctx: &Context, t: &Term) -> String {
             format!("(λ{}. {})", x_prime, print_term(&ctx_prime, t1))
         }
         Term::App(box ref t1, box ref t2) => format!("({} {})", print_term(ctx, t1), print_term(ctx, t2)),
-        Term::Var(x) => ctx.get(x as usize).map(|name| name.clone()).unwrap_or("[bad index]".to_owned()),
+        Term::Var(x) => ctx.get(x as usize).map(|name| name.clone()).unwrap_or("[bad index]".into()),
     }
 }
 
@@ -99,14 +99,14 @@ fn term_shift_walk(c: i32, t: &Term, d: i32) -> Term {
 fn pick_fresh_name(ctx: &Context, x: &str) -> (Context, String) {
     let mut ctx_prime = ctx.clone();
 
-    if ctx_prime.contains(&x.to_owned()) {
+    if ctx_prime.contains(&x.into()) {
         let x_prime = format!("{}'", x);
 
         pick_fresh_name(ctx, &x_prime)
     } else {
-        ctx_prime.push(x.to_owned());
+        ctx_prime.push(x.into());
 
-        (ctx_prime, x.to_owned())
+        (ctx_prime, x.into())
     }
 }
 
@@ -131,7 +131,7 @@ mod tests {
 
     #[test]
     fn abs_is_a_val() {
-        assert!(is_val(&Term::Abs("x".to_owned(), box Term::Var(0))));
+        assert!(is_val(&Term::Abs("x".into(), box Term::Var(0))));
     }
 
     #[test]
@@ -150,7 +150,7 @@ mod tests {
 
     #[test]
     fn displaying_an_abs_returns_a_lambda() {
-        let abs = format!("{}", Term::Abs("x".to_owned(), box Term::Var(0)));
+        let abs = format!("{}", Term::Abs("x".into(), box Term::Var(0)));
 
         assert_eq!("(λ. 0)", abs);
     }
@@ -160,9 +160,9 @@ mod tests {
         let abs = format!(
             "{}",
             Term::Abs(
-                "x".to_owned(),
+                "x".into(),
                 box Term::Abs(
-                    "y".to_owned(),
+                    "y".into(),
                     box Term::App(box Term::Var(1), box Term::App(box Term::Var(0), box Term::Var(1)))
                 )
             )
@@ -175,9 +175,9 @@ mod tests {
     fn evaluating_a_simple_term() {
         let term = Term::App(
             box Term::Abs(
-                "x".to_owned(),
+                "x".into(),
                 box Term::Abs(
-                    "y".to_owned(),
+                    "y".into(),
                     box Term::App(
                         box Term::Var(1),
                         box Term::Var(0)
@@ -185,7 +185,7 @@ mod tests {
                 )
             ),
             box Term::Abs(
-                "z".to_owned(),
+                "z".into(),
                 box Term::Var(0)
             )
         );
@@ -199,13 +199,13 @@ mod tests {
     #[test]
     fn evaluating_a_more_complicated_term() {
         let term = Term::App(
-            box Term::Abs("x".to_owned(), box Term::Var(0)),
+            box Term::Abs("x".into(), box Term::Var(0)),
             box Term::App(
-                box Term::Abs("x".to_owned(), box Term::Var(0)),
+                box Term::Abs("x".into(), box Term::Var(0)),
                 box Term::Abs(
-                    "z".to_owned(),
+                    "z".into(),
                     box Term::App(
-                        box Term::Abs("x".to_owned(), box Term::Var(1)),
+                        box Term::Abs("x".into(), box Term::Var(1)),
                         box Term::Var(0)
                     )
                 )
@@ -251,7 +251,7 @@ mod tests {
     #[test]
     fn print_pretty_prints_a_term_with_a_context() {
         let ctx = Vec::new();
-        let term = Term::Abs("x".to_owned(), box Term::Var(0));
+        let term = Term::Abs("x".into(), box Term::Var(0));
 
         let result = print_term(&ctx, &term);
 
@@ -262,13 +262,13 @@ mod tests {
     fn print_pretty_prints_more_complicated_terms() {
         let ctx = Vec::new();
         let term = Term::App(
-            box Term::Abs("x".to_owned(), box Term::Var(0)),
+            box Term::Abs("x".into(), box Term::Var(0)),
             box Term::App(
-                box Term::Abs("x".to_owned(), box Term::Var(0)),
+                box Term::Abs("x".into(), box Term::Var(0)),
                 box Term::Abs(
-                    "z".to_owned(),
+                    "z".into(),
                     box Term::App(
-                        box Term::Abs("x".to_owned(), box Term::Var(1)),
+                        box Term::Abs("x".into(), box Term::Var(1)),
                         box Term::Var(0)
                     )
                 )
