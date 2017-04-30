@@ -8,11 +8,10 @@ Note this currently requires nightly Rust in order to use [Box syntax and patter
 #![feature(box_syntax, box_patterns)]
 extern crate untyped;
 
-use untyped::{eval, print_term};
+use untyped::eval;
 use untyped::Term::*;
 
 fn main() {
-    let ctx = Vec::new();
     let term = App(
         box Abs("x".into(), box Var(0)),
         box App(
@@ -29,17 +28,13 @@ fn main() {
     let evaluated_term = eval(&term);
 
     println!("Source term:           {}", term);
-    println!("Pretty term:           {}", print_term(&ctx, &term));
     println!("Evaluated term:        {}", evaluated_term);
-    println!("Pretty evaluated term: {}", print_term(&ctx, &evaluated_term));
 }
 ```
 
 Produces:
 
 ```
-Source term:           ((λ. 0) ((λ. 0) (λ. ((λ. 0) 0))))
-Pretty term:           ((λx. x) ((λx. x) (λz. ((λx. x) z))))
-Evaluated term:        (λ. ((λ. 0) 0))
-Pretty evaluated term: (λz. ((λx. x) z))
+Source term:           ((λx. x) ((λx. x) (λz. ((λx. x) z))))
+Evaluated term:        (λz. ((λx. x) z))
 ```

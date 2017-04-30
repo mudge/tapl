@@ -12,18 +12,26 @@ use std::fmt;
 /// A term in the untyped Lambda Calculus.
 #[derive(PartialEq, Debug, Clone)]
 pub enum Term {
-    /// Variable.
+    /// A variable and its de Bruijn index.
     Var(i32),
-    /// Abstraction.
+    /// An abstraction and a hint to its name (e.g. "x").
     Abs(String, Box<Term>),
-    /// Application.
+    /// An application of two terms.
     App(Box<Term>, Box<Term>),
 }
 
 type Context = Vec<String>;
 
+impl fmt::Display for Term {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let ctx = Context::new();
+
+        write!(f, "{}", print_term(&ctx, self))
+    }
+}
+
 /// Pretty-print a `Term` with a given `Context` rather than using de Bruijn indices.
-pub fn print_term(ctx: &Context, t: &Term) -> String {
+fn print_term(ctx: &Context, t: &Term) -> String {
     match *t {
         Term::Abs(ref x, box ref t1) => {
             let (ctx_prime, x_prime) = pick_fresh_name(ctx, x);
@@ -110,16 +118,6 @@ fn pick_fresh_name(ctx: &Context, x: &str) -> (Context, String) {
     }
 }
 
-impl fmt::Display for Term {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Term::Var(x) => write!(f, "{}", x),
-            Term::App(ref t1, ref t2) => write!(f, "({} {})", t1, t2),
-            Term::Abs(_, ref t1) => write!(f, "(λ. {})", t1),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -135,24 +133,10 @@ mod tests {
     }
 
     #[test]
-    fn displaying_a_var_returns_its_index() {
-        let var = format!("{}", Term::Var(0));
-
-        assert_eq!("0", var);
-    }
-
-    #[test]
-    fn displaying_an_app_returns_both_terms_in_parens() {
-        let app = format!("{}", Term::App(box Term::Var(0), box Term::Var(1)));
-
-        assert_eq!("(0 1)", app);
-    }
-
-    #[test]
     fn displaying_an_abs_returns_a_lambda() {
         let abs = format!("{}", Term::Abs("x".into(), box Term::Var(0)));
 
-        assert_eq!("(λ. 0)", abs);
+        assert_eq!("(λx. x)", abs);
     }
 
     #[test]
@@ -168,7 +152,7 @@ mod tests {
             )
         );
 
-        assert_eq!("(λ. (λ. 1))", abs);
+        assert_eq!("(λx. (λy. x))", abs);
     }
 
     #[test]
@@ -192,8 +176,8 @@ mod tests {
 
         let result = eval1(&term).expect("Should not error");
 
-        assert_eq!("((λ. (λ. (1 0))) (λ. 0))", format!("{}", term));
-        assert_eq!("(λ. ((λ. 0) 0))", format!("{}", result));
+        assert_eq!("((λx. (λy. (x y))) (λz. z))", format!("{}", term));
+        assert_eq!("(λy. ((λz. z) y))", format!("{}", result));
     }
 
     #[test]
@@ -215,15 +199,15 @@ mod tests {
         let result = eval1(&term).expect("Should not error");
         let result_2 = eval1(&result).expect("Should not error");
 
-        assert_eq!("((λ. 0) ((λ. 0) (λ. ((λ. 0) 0))))", format!("{}", term));
-        assert_eq!("((λ. 0) (λ. ((λ. 0) 0)))", format!("{}", result));
-        assert_eq!("(λ. ((λ. 0) 0))", format!("{}", result_2));
-        assert_eq!("(λ. ((λ. 0) 0))", format!("{}", eval(&term)));
+        assert_eq!("((λx. x) ((λx. x) (λz. ((λx. x) z))))", format!("{}", term));
+        assert_eq!("((λx. x) (λz. ((λx. x) z)))", format!("{}", result));
+        assert_eq!("(λz. ((λx. x) z))", format!("{}", result_2));
+        assert_eq!("(λz. ((λx. x) z))", format!("{}", eval(&term)));
     }
 
     #[test]
     fn pick_fresh_name_returns_a_context_and_name() {
-        let ctx = Vec::new();
+        let ctx = Context::new();
         let (ctx_prime, name) = pick_fresh_name(&ctx, "x");
 
         assert_eq!(vec!["x".to_owned()], ctx_prime);
@@ -232,7 +216,7 @@ mod tests {
 
     #[test]
     fn pick_fresh_name_returns_a_context_and_name_with_a_nonempty_context() {
-        let ctx = vec!["x".to_owned()];
+        let ctx: Context = vec!["x".into()];
         let (ctx_prime, name) = pick_fresh_name(&ctx, "y");
 
         assert_eq!(vec!["y".to_owned(), "x".to_owned()], ctx_prime);
@@ -241,7 +225,7 @@ mod tests {
 
     #[test]
     fn pick_fresh_name_returns_a_context_and_name_when_a_name_already_exists() {
-        let ctx = vec!["x".to_owned()];
+        let ctx: Context = vec!["x".into()];
         let (ctx_prime, name) = pick_fresh_name(&ctx, "x");
 
         assert_eq!(vec!["x'".to_owned(), "x".to_owned()], ctx_prime);
