@@ -13,7 +13,7 @@ fn main() {
             box Abs(
                 "z".into(),
                 box App(
-                    box Abs("x".into(), box Var(1)),
+                    box Abs("x".into(), box Var(0)),
                     box Var(0)
                 )
             )

@@ -20,7 +20,7 @@ fn main() {
             box Abs(
                 "z".into(),
                 box App(
-                    box Abs("x".into(), box Var(1)),
+                    box Abs("x".into(), box Var(0)),
                     box Var(0)
                 )
             )
@@ -38,8 +38,8 @@ fn main() {
 Produces:
 
 ```
-Source term:           ((λ. 0) ((λ. 0) (λ. ((λ. 1) 0))))
+Source term:           ((λ. 0) ((λ. 0) (λ. ((λ. 0) 0))))
 Pretty term:           ((λx. x) ((λx. x) (λz. ((λx. x) z))))
-Evaluated term:        (λ. ((λ. 1) 0))
+Evaluated term:        (λ. ((λ. 0) 0))
 Pretty evaluated term: (λz. ((λx. x) z))
 ```

@@ -104,7 +104,7 @@ fn pick_fresh_name(ctx: &Context, x: &str) -> (Context, String) {
 
         pick_fresh_name(ctx, &x_prime)
     } else {
-        ctx_prime.push(x.into());
+        ctx_prime.insert(0, x.into());
 
         (ctx_prime, x.into())
     }
@@ -163,12 +163,12 @@ mod tests {
                 "x".into(),
                 box Term::Abs(
                     "y".into(),
-                    box Term::App(box Term::Var(1), box Term::App(box Term::Var(0), box Term::Var(1)))
+                    box Term::Var(1)
                 )
             )
         );
 
-        assert_eq!("(λ. (λ. (1 (0 1))))", abs);
+        assert_eq!("(λ. (λ. 1))", abs);
     }
 
     #[test]
@@ -205,7 +205,7 @@ mod tests {
                 box Term::Abs(
                     "z".into(),
                     box Term::App(
-                        box Term::Abs("x".into(), box Term::Var(1)),
+                        box Term::Abs("x".into(), box Term::Var(0)),
                         box Term::Var(0)
                     )
                 )
@@ -215,10 +215,10 @@ mod tests {
         let result = eval1(&term).expect("Should not error");
         let result_2 = eval1(&result).expect("Should not error");
 
-        assert_eq!("((λ. 0) ((λ. 0) (λ. ((λ. 1) 0))))", format!("{}", term));
-        assert_eq!("((λ. 0) (λ. ((λ. 1) 0)))", format!("{}", result));
-        assert_eq!("(λ. ((λ. 1) 0))", format!("{}", result_2));
-        assert_eq!("(λ. ((λ. 1) 0))", format!("{}", eval(&term)));
+        assert_eq!("((λ. 0) ((λ. 0) (λ. ((λ. 0) 0))))", format!("{}", term));
+        assert_eq!("((λ. 0) (λ. ((λ. 0) 0)))", format!("{}", result));
+        assert_eq!("(λ. ((λ. 0) 0))", format!("{}", result_2));
+        assert_eq!("(λ. ((λ. 0) 0))", format!("{}", eval(&term)));
     }
 
     #[test]
@@ -235,7 +235,7 @@ mod tests {
         let ctx = vec!["x".to_owned()];
         let (ctx_prime, name) = pick_fresh_name(&ctx, "y");
 
-        assert_eq!(vec!["x".to_owned(), "y".to_owned()], ctx_prime);
+        assert_eq!(vec!["y".to_owned(), "x".to_owned()], ctx_prime);
         assert_eq!("y".to_owned(), name);
     }
 
@@ -244,7 +244,7 @@ mod tests {
         let ctx = vec!["x".to_owned()];
         let (ctx_prime, name) = pick_fresh_name(&ctx, "x");
 
-        assert_eq!(vec!["x".to_owned(), "x'".to_owned()], ctx_prime);
+        assert_eq!(vec!["x'".to_owned(), "x".to_owned()], ctx_prime);
         assert_eq!("x'".to_owned(), name);
     }
 
@@ -261,23 +261,11 @@ mod tests {
     #[test]
     fn print_pretty_prints_more_complicated_terms() {
         let ctx = Vec::new();
-        let term = Term::App(
-            box Term::Abs("x".into(), box Term::Var(0)),
-            box Term::App(
-                box Term::Abs("x".into(), box Term::Var(0)),
-                box Term::Abs(
-                    "z".into(),
-                    box Term::App(
-                        box Term::Abs("x".into(), box Term::Var(1)),
-                        box Term::Var(0)
-                    )
-                )
-            )
+        let term = Term::Abs(
+            "x".into(),
+            box Term::Abs("y".into(), box Term::Var(1))
         );
 
-        let result = print_term(&ctx, &term);
-
-        assert_eq!("((λ. 0) ((λ. 0) (λ. ((λ. 1) 0))))", format!("{}", term));
-        assert_eq!("((λx. x) ((λx. x) (λz. ((λx. x) z))))", result);
+        assert_eq!("(λx. (λy. x))", print_term(&ctx, &term));
     }
 }
