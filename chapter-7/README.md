@@ -5,26 +5,13 @@ An implementation in Rust of the [`untyped`](https://www.cis.upenn.edu/~bcpierce
 Note this currently requires nightly Rust in order to use [Box syntax and patterns](https://doc.rust-lang.org/book/box-syntax-and-patterns.html).
 
 ```rust
-#![feature(box_syntax, box_patterns)]
+#[macro_use(untyped)]
 extern crate untyped;
 
-use untyped::eval;
-use untyped::Term::*;
+use untyped::{eval, Term};
 
 fn main() {
-    let term = App(
-        box Abs("x".into(), box Var(0)),
-        box App(
-            box Abs("x".into(), box Var(0)),
-            box Abs(
-                "z".into(),
-                box App(
-                    box Abs("x".into(), box Var(0)),
-                    box Var(0)
-                )
-            )
-        )
-    );
+    let term = untyped! { ((λ x . 0) ((λ x . 0) (λ z . ((λ x . 0) 0)))) };
     let evaluated_term = eval(&term);
 
     println!("Source term:           {}", term);

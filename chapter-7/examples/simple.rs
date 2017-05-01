@@ -1,23 +1,10 @@
-#![feature(box_syntax, box_patterns)]
+#[macro_use(untyped)]
 extern crate untyped;
 
-use untyped::eval;
-use untyped::Term::*;
+use untyped::{eval, Term};
 
 fn main() {
-    let term = App(
-        box Abs("x".into(), box Var(0)),
-        box App(
-            box Abs("x".into(), box Var(0)),
-            box Abs(
-                "z".into(),
-                box App(
-                    box Abs("x".into(), box Var(0)),
-                    box Var(0)
-                )
-            )
-        )
-    );
+    let term = untyped! { ((λ x . 0) ((λ x . 0) (λ z . ((λ x . 0) 0)))) };
     let evaluated_term = eval(&term);
 
     println!("Source term:           {}", term);
