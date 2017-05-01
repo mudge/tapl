@@ -118,9 +118,44 @@ fn pick_fresh_name(ctx: &Context, x: &str) -> (Context, String) {
     }
 }
 
+#[macro_export]
+macro_rules! untyped {
+    ((λ $x:ident . $t1:tt)) => { Term::Abs(stringify!($x).into(), Box::new(untyped!($t1))) };
+    (($t1:tt $t2:tt)) => { Term::App(Box::new(untyped!($t1)), Box::new(untyped!($t2))) };
+    ($x:expr) => { Term::Var($x) };
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn integer_macro_expands_to_var() {
+        let var = untyped! { 0 };
+
+        assert_eq!(var, Term::Var(0));
+    }
+
+    #[test]
+    fn application_macro_expands_to_app() {
+        let app = untyped! { (0 1) };
+
+        assert_eq!(app, Term::App(box Term::Var(0), box Term::Var(1)));
+    }
+
+    #[test]
+    fn abstraction_macro_expands_to_abs() {
+        let abs = untyped! { (λ x . 0) };
+
+        assert_eq!(abs, Term::Abs("x".into(), box Term::Var(0)));
+    }
+
+    #[test]
+    fn nested_macro_expands() {
+        let term = untyped! { (λ z . ((λ x . 0) 0)) };
+
+        assert_eq!(term, Term::Abs("z".into(), box Term::App(box Term::Abs("x".into(), box Term::Var(0)), box Term::Var(0))));
+    }
 
     #[test]
     fn var_is_not_a_val() {
