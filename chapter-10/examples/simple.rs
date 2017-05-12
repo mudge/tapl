@@ -5,7 +5,8 @@ use simplebool::{type_of, Term, Context, Type};
 
 fn main() {
     let ctx = Context::new();
-    let term = Term::App(box Term::Abs("x".into(), Type::Bool, box Term::Var(0)), box Term::If(box Term::True, box Term::True, box Term::False));
+    let term = Term::App(box Term::Abs("x".into(), Type::Bool, box Term::Var(0)),
+                         box Term::If(box Term::True, box Term::True, box Term::False));
 
     println!("Source term:    {}", term);
     match type_of(&ctx, &term) {
@@ -13,4 +14,3 @@ fn main() {
         Err(err) => println!("Type error:     {}", err),
     }
 }
-

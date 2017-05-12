@@ -7,6 +7,7 @@
 //! c.f. https://www.cis.upenn.edu/~bcpierce/tapl/checkers/simplebool/core.ml for the sample OCaml
 //! implementation.
 
+use std::error;
 use std::fmt;
 
 /// Available types in this language.
@@ -68,6 +69,20 @@ pub enum Error {
     ArmsOfConditionalHaveDifferentTypes,
 }
 
+impl error::Error for Error {
+    fn description(&self) -> &str {
+        match *self {
+            Error::WrongBinding => "wrong binding for a variable",
+            Error::ParameterTypeMismatch => "parameter type mismatch",
+            Error::ArrowTypeExpected => "arrow type expected",
+            Error::GuardOfConditionalNotABoolean => "guard of conditional not a boolean",
+            Error::ArmsOfConditionalHaveDifferentTypes => {
+                "arms of conditional have different types"
+            }
+        }
+    }
+}
+
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
@@ -75,15 +90,18 @@ impl fmt::Display for Error {
             Error::ParameterTypeMismatch => write!(f, "parameter type mismatch"),
             Error::ArrowTypeExpected => write!(f, "arrow type expected"),
             Error::GuardOfConditionalNotABoolean => write!(f, "guard of conditional not a boolean"),
-            Error::ArmsOfConditionalHaveDifferentTypes => write!(f, "arms of conditional have different types"),
+            Error::ArmsOfConditionalHaveDifferentTypes => {
+                write!(f, "arms of conditional have different types")
+            }
         }
     }
 }
 
+/// A context for type checking with variable names and their bindings.
 pub type Context = Vec<(String, Binding)>;
 
 /// Return the type of the given term with the given context.
-pub fn type_of(ctx: &Context, t: &Term) -> Result<Type, Error> {
+pub fn type_of(ctx: &[(String, Binding)], t: &Term) -> Result<Type, Error> {
     match *t {
         Term::Var(i) => get_type_from_context(ctx, i),
         Term::Abs(ref x, ref ty_t1, box ref t2) => {
@@ -103,12 +121,11 @@ pub fn type_of(ctx: &Context, t: &Term) -> Result<Type, Error> {
                     } else {
                         Err(Error::ParameterTypeMismatch)
                     }
-                },
-                _ => Err(Error::ArrowTypeExpected)
+                }
+                _ => Err(Error::ArrowTypeExpected),
             }
         }
-        Term::True => Ok(Type::Bool),
-        Term::False => Ok(Type::Bool),
+        Term::True | Term::False => Ok(Type::Bool),
         Term::If(box ref t1, box ref t2, box ref t3) => {
             if type_of(ctx, t1)? == Type::Bool {
                 let ty_t2 = type_of(ctx, t2)?;
@@ -128,12 +145,12 @@ pub fn type_of(ctx: &Context, t: &Term) -> Result<Type, Error> {
 fn get_type_from_context(ctx: &[(String, Binding)], i: usize) -> Result<Type, Error> {
     match get_binding(ctx, i) {
         Some(Binding::VarBind(ty_t)) => Ok(ty_t.clone()),
-        _ => Err(Error::WrongBinding)
+        _ => Err(Error::WrongBinding),
     }
 }
 
-fn add_binding(ctx: &Context, x: &str, bind: Binding) -> Context {
-    let mut ctx_prime = ctx.clone();
+fn add_binding(ctx: &[(String, Binding)], x: &str, bind: Binding) -> Context {
+    let mut ctx_prime = ctx.to_vec();
     ctx_prime.insert(0, (x.into(), bind));
 
     ctx_prime
@@ -145,18 +162,12 @@ fn get_binding(ctx: &[(String, Binding)], i: usize) -> Option<Binding> {
 
 fn is_name_bound(ctx: &[(String, Binding)], x: &str) -> bool {
     match ctx.split_first() {
-        Some((&(ref y, _), rest)) => {
-            if x == y {
-                true
-            } else {
-                is_name_bound(rest, x)
-            }
-        }
+        Some((&(ref y, _), rest)) => if x == y { true } else { is_name_bound(rest, x) },
         None => false,
     }
 }
 
-fn pick_fresh_name(ctx: &Context, x: &str) -> (Context, String) {
+fn pick_fresh_name(ctx: &[(String, Binding)], x: &str) -> (Context, String) {
     if is_name_bound(ctx, x) {
         let x_prime = format!("{}'", x);
 
@@ -175,18 +186,24 @@ impl fmt::Display for Term {
 }
 
 /// Pretty-print a `Term` with a given `Context` rather than using de Bruijn indices.
-fn print_term(ctx: &Context, t: &Term) -> String {
+fn print_term(ctx: &[(String, Binding)], t: &Term) -> String {
     match *t {
         Term::Abs(ref x, ref ty, box ref t1) => {
             let (ctx_prime, x_prime) = pick_fresh_name(ctx, x);
 
             format!("(λ{}:{}. {})", x_prime, ty, print_term(&ctx_prime, t1))
         }
-        Term::App(box ref t1, box ref t2) => format!("({} {})", print_term(ctx, t1), print_term(ctx, t2)),
-        Term::Var(x) => ctx.get(x).map(|&(ref name, _)| name.clone()).unwrap_or("[bad index]".into()),
+        Term::App(box ref t1, box ref t2) => {
+            format!("({} {})", print_term(ctx, t1), print_term(ctx, t2))
+        }
+        Term::Var(x) => {
+            ctx.get(x).map(|&(ref name, _)| name.clone()).unwrap_or_else(|| "[bad index]".into())
+        }
         Term::True => "true".into(),
         Term::False => "false".into(),
-        Term::If(box ref t1, box ref t2, box ref t3) => format!("if {} then {} else {}", t1, t2, t3),
+        Term::If(box ref t1, box ref t2, box ref t3) => {
+            format!("if {} then {} else {}", t1, t2, t3)
+        }
     }
 }
 
@@ -207,8 +224,8 @@ mod tests {
         let ctx: Context = vec![("x".into(), Binding::NameBind)];
         let ctx_prime = add_binding(&ctx, "y", Binding::NameBind);
 
-        assert_eq!(vec![("y".into(), Binding::NameBind),
-                        ("x".into(), Binding::NameBind)], ctx_prime);
+        assert_eq!(vec![("y".into(), Binding::NameBind), ("x".into(), Binding::NameBind)],
+                   ctx_prime);
     }
 
     #[test]
@@ -255,7 +272,8 @@ mod tests {
     #[test]
     fn type_of_abs_is_arrow_of_input_to_output() {
         let ctx = Context::new();
-        let ty = type_of(&ctx, &Term::Abs("x".into(), Type::Bool, box Term::Var(0))).expect("Should not panic");
+        let ty = type_of(&ctx, &Term::Abs("x".into(), Type::Bool, box Term::Var(0)))
+            .expect("Should not panic");
 
         assert_eq!(Type::Arrow(box Type::Bool, box Type::Bool), ty);
     }
@@ -263,15 +281,24 @@ mod tests {
     #[test]
     fn type_of_abs_works_with_nested_abstractions() {
         let ctx = Context::new();
-        let ty = type_of(&ctx, &Term::Abs("x".into(), Type::Bool, box Term::Abs("y".into(), Type::Bool, box Term::Var(0)))).expect("Should not panic");
+        let ty = type_of(&ctx,
+                         &Term::Abs("x".into(),
+                                    Type::Bool,
+                                    box Term::Abs("y".into(), Type::Bool, box Term::Var(0))))
+            .expect("Should not panic");
 
-        assert_eq!(Type::Arrow(box Type::Bool, box Type::Arrow(box Type::Bool, box Type::Bool)), ty);
+        assert_eq!(Type::Arrow(box Type::Bool,
+                               box Type::Arrow(box Type::Bool, box Type::Bool)),
+                   ty);
     }
 
     #[test]
     fn type_of_app_is_return_type_of_abs() {
         let ctx = Context::new();
-        let ty = type_of(&ctx, &Term::App(box Term::Abs("x".into(), Type::Bool, box Term::Var(0)), box Term::True)).expect("Should not panic");
+        let ty = type_of(&ctx,
+                         &Term::App(box Term::Abs("x".into(), Type::Bool, box Term::Var(0)),
+                                    box Term::True))
+            .expect("Should not panic");
 
         assert_eq!(Type::Bool, ty);
     }
@@ -287,7 +314,9 @@ mod tests {
     #[test]
     fn type_of_app_errors_if_given_the_wrong_type() {
         let ctx = Context::new();
-        let ty = type_of(&ctx, &Term::App(box Term::Abs("x".into(), Type::Bool, box Term::Var(0)), box Term::Var(0)));
+        let ty = type_of(&ctx,
+                         &Term::App(box Term::Abs("x".into(), Type::Bool, box Term::Var(0)),
+                                    box Term::Var(0)));
 
         assert!(ty.is_err());
     }
@@ -311,7 +340,9 @@ mod tests {
     #[test]
     fn type_of_if_is_type_of_arms() {
         let ctx = Context::new();
-        let ty = type_of(&ctx, &Term::If(box Term::True, box Term::True, box Term::False)).expect("Should not panic");
+        let ty = type_of(&ctx,
+                         &Term::If(box Term::True, box Term::True, box Term::False))
+            .expect("Should not panic");
 
         assert_eq!(Type::Bool, ty);
     }
@@ -319,7 +350,8 @@ mod tests {
     #[test]
     fn type_of_if_errors_if_arms_do_not_match() {
         let ctx = Context::new();
-        let ty = type_of(&ctx, &Term::If(box Term::True, box Term::True, box Term::Var(0)));
+        let ty = type_of(&ctx,
+                         &Term::If(box Term::True, box Term::True, box Term::Var(0)));
 
         assert!(ty.is_err());
     }
@@ -327,7 +359,8 @@ mod tests {
     #[test]
     fn type_of_if_errors_if_guard_is_not_bool() {
         let ctx = Context::new();
-        let ty = type_of(&ctx, &Term::If(box Term::Var(0), box Term::True, box Term::False));
+        let ty = type_of(&ctx,
+                         &Term::If(box Term::Var(0), box Term::True, box Term::False));
 
         assert!(ty.is_err());
     }
