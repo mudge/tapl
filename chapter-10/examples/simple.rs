@@ -1,12 +1,15 @@
-#![feature(box_syntax, box_patterns)]
+#[macro_use(simplebool)]
 extern crate simplebool;
 
 use simplebool::{type_of, Term, Context, Type};
 
 fn main() {
     let ctx = Context::new();
-    let term = Term::App(box Term::Abs("x".into(), Type::Bool, box Term::Var(0)),
-                         box Term::If(box Term::True, box Term::True, box Term::False));
+    let term = simplebool! {
+        (if ((λ(y: Bool) . 0) true) then
+            ((λ(z: Bool) . 0) (if false then ((λ(z: Bool) . 0) true) else false)) else
+            ((λ(z: Bool) . 0) (if true then false else ((λ(z: Bool) . 0) true))))
+    };
 
     println!("Source term:    {}", term);
     match type_of(&ctx, &term) {

@@ -58,25 +58,25 @@ pub enum Binding {
 #[derive(PartialEq, Debug, Clone)]
 pub enum Error {
     /// An incorrect binding for a variable.
-    WrongBinding,
+    WrongBinding(usize),
     /// An incorrect parameter type for an abstraction.
-    ParameterTypeMismatch,
+    ParameterTypeMismatch(Type, Type),
     /// An incorrect type for an application.
-    ArrowTypeExpected,
+    ArrowTypeExpected(Type),
     /// An error if the predicate in a conditional does not result in a boolean.
-    GuardOfConditionalNotABoolean,
+    GuardOfConditionalNotABoolean(Type),
     /// An error if the two arms of a conditional do not result in the same type.
-    ArmsOfConditionalHaveDifferentTypes,
+    ArmsOfConditionalHaveDifferentTypes(Type, Type),
 }
 
 impl error::Error for Error {
     fn description(&self) -> &str {
         match *self {
-            Error::WrongBinding => "wrong binding for a variable",
-            Error::ParameterTypeMismatch => "parameter type mismatch",
-            Error::ArrowTypeExpected => "arrow type expected",
-            Error::GuardOfConditionalNotABoolean => "guard of conditional not a boolean",
-            Error::ArmsOfConditionalHaveDifferentTypes => {
+            Error::WrongBinding(_) => "wrong binding for a variable",
+            Error::ParameterTypeMismatch(_, _) => "parameter type mismatch",
+            Error::ArrowTypeExpected(_) => "arrow type expected",
+            Error::GuardOfConditionalNotABoolean(_) => "guard of conditional not a boolean",
+            Error::ArmsOfConditionalHaveDifferentTypes(_, _) => {
                 "arms of conditional have different types"
             }
         }
@@ -86,12 +86,22 @@ impl error::Error for Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Error::WrongBinding => write!(f, "wrong binding"),
-            Error::ParameterTypeMismatch => write!(f, "parameter type mismatch"),
-            Error::ArrowTypeExpected => write!(f, "arrow type expected"),
-            Error::GuardOfConditionalNotABoolean => write!(f, "guard of conditional not a boolean"),
-            Error::ArmsOfConditionalHaveDifferentTypes => {
-                write!(f, "arms of conditional have different types")
+            Error::WrongBinding(i) => write!(f, "wrong binding for variable with index {}", i),
+            Error::ParameterTypeMismatch(ref ty1, ref ty2) => {
+                write!(f,
+                       "parameter type mismatch, expected {} to match {}",
+                       ty1,
+                       ty2)
+            }
+            Error::ArrowTypeExpected(ref ty) => write!(f, "expected arrow type, got {}", ty),
+            Error::GuardOfConditionalNotABoolean(ref ty) => {
+                write!(f, "expected guard of conditional to be boolean, got {}", ty)
+            }
+            Error::ArmsOfConditionalHaveDifferentTypes(ref ty1, ref ty2) => {
+                write!(f,
+                       "arms of conditional have different types, expected {} to match {}",
+                       ty1,
+                       ty2)
             }
         }
     }
@@ -119,24 +129,27 @@ pub fn type_of(ctx: &[(String, Binding)], t: &Term) -> Result<Type, Error> {
                     if ty_t2 == ty_t11 {
                         Ok(ty_t12)
                     } else {
-                        Err(Error::ParameterTypeMismatch)
+                        Err(Error::ParameterTypeMismatch(ty_t2, ty_t11))
                     }
                 }
-                _ => Err(Error::ArrowTypeExpected),
+                _ => Err(Error::ArrowTypeExpected(ty_t1)),
             }
         }
         Term::True | Term::False => Ok(Type::Bool),
         Term::If(box ref t1, box ref t2, box ref t3) => {
-            if type_of(ctx, t1)? == Type::Bool {
-                let ty_t2 = type_of(ctx, t2)?;
+            let ty_t1 = type_of(ctx, t1)?;
 
-                if ty_t2 == type_of(ctx, t3)? {
+            if ty_t1 == Type::Bool {
+                let ty_t2 = type_of(ctx, t2)?;
+                let ty_t3 = type_of(ctx, t3)?;
+
+                if ty_t2 == ty_t3 {
                     Ok(ty_t2)
                 } else {
-                    Err(Error::ArmsOfConditionalHaveDifferentTypes)
+                    Err(Error::ArmsOfConditionalHaveDifferentTypes(ty_t2, ty_t3))
                 }
             } else {
-                Err(Error::GuardOfConditionalNotABoolean)
+                Err(Error::GuardOfConditionalNotABoolean(ty_t1))
             }
         }
     }
@@ -145,7 +158,7 @@ pub fn type_of(ctx: &[(String, Binding)], t: &Term) -> Result<Type, Error> {
 fn get_type_from_context(ctx: &[(String, Binding)], i: usize) -> Result<Type, Error> {
     match get_binding(ctx, i) {
         Some(Binding::VarBind(ty_t)) => Ok(ty_t.clone()),
-        _ => Err(Error::WrongBinding),
+        _ => Err(Error::WrongBinding(i)),
     }
 }
 
@@ -162,7 +175,8 @@ fn get_binding(ctx: &[(String, Binding)], i: usize) -> Option<Binding> {
 
 fn is_name_bound(ctx: &[(String, Binding)], x: &str) -> bool {
     match ctx.split_first() {
-        Some((&(ref y, _), rest)) => if x == y { true } else { is_name_bound(rest, x) },
+        Some((&(ref y, _), _)) if x == y => true,
+        Some((_, rest)) => is_name_bound(rest, x),
         None => false,
     }
 }
@@ -207,9 +221,107 @@ fn print_term(ctx: &[(String, Binding)], t: &Term) -> String {
     }
 }
 
+#[macro_export]
+macro_rules! simplebool {
+    (Bool) => { Type::Bool };
+    (true) => { Term::True };
+    (false) => { Term::False };
+    ((if $t1:tt then $t2:tt else $t3:tt)) => {
+        Term::If(Box::new(simplebool!($t1)), Box::new(simplebool!($t2)), Box::new(simplebool!($t3)))
+    };
+    ((λ ($x:ident : $($ty:tt)+) . $t1:tt)) => {
+        Term::Abs(stringify!($x).into(), simplebool!($($ty)*), Box::new(simplebool!($t1)))
+    };
+    (($t1:tt $t2:tt)) => { Term::App(Box::new(simplebool!($t1)), Box::new(simplebool!($t2))) };
+    ($x:expr) => { Term::Var($x) };
+    ($ty1:ident -> $($ty2:tt)*) => {
+        Type::Arrow(Box::new(simplebool!($ty1)), Box::new(simplebool!($($ty2)*)))
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn simplebool_expands_bool_to_type() {
+        let ty = simplebool! { Bool };
+
+        assert_eq!(Type::Bool, ty);
+    }
+
+    #[test]
+    fn simplebool_expands_arrow_to_arrow_type() {
+        let ty = simplebool! { Bool -> Bool };
+
+        assert_eq!(Type::Arrow(box Type::Bool, box Type::Bool), ty);
+    }
+
+    #[test]
+    fn simplebool_expands_nested_arrows() {
+        let ty = simplebool! { Bool -> Bool -> Bool -> Bool };
+
+        assert_eq!(Type::Arrow(box Type::Bool,
+                               box Type::Arrow(box Type::Bool,
+                                               box Type::Arrow(box Type::Bool, box Type::Bool))),
+                   ty);
+    }
+
+    #[test]
+    fn simplebool_expands_abstractions_with_type_annotations() {
+        let term = simplebool! { (λ (x : Bool) . 0) };
+
+        assert_eq!(Term::Abs("x".into(), Type::Bool, box Term::Var(0)), term);
+    }
+
+    #[test]
+    fn simplebool_expands_abstractions_with_arrow_type_annotations() {
+        let term = simplebool! { (λ (x : Bool -> Bool) . 0) };
+
+        assert_eq!(Term::Abs("x".into(),
+                             Type::Arrow(box Type::Bool, box Type::Bool),
+                             box Term::Var(0)),
+                   term);
+    }
+
+    #[test]
+    fn simplebool_expands_abstractions_with_nested_arrow_type_annotations() {
+        let term = simplebool! { (λ (x : Bool -> Bool -> Bool) . 0) };
+
+        assert_eq!(Term::Abs("x".into(),
+                             Type::Arrow(box Type::Bool,
+                                         box Type::Arrow(box Type::Bool, box Type::Bool)),
+                             box Term::Var(0)),
+                   term);
+    }
+
+    #[test]
+    fn simplebool_expands_applications() {
+        let term = simplebool! { ((λ (x : Bool) . 0) true) };
+
+        assert_eq!(Term::App(box Term::Abs("x".into(), Type::Bool, box Term::Var(0)),
+                             box Term::True),
+                   term);
+    }
+
+    #[test]
+    fn simplebool_expands_applications_with_more_complicated_terms() {
+        let term = simplebool! { ((λ (x : Bool) . 0) (if true then true else false)) };
+
+        assert_eq!(Term::App(box Term::Abs("x".into(), Type::Bool, box Term::Var(0)),
+                             box Term::If(box Term::True, box Term::True, box Term::False)),
+                   term);
+    }
+
+    #[test]
+    fn simplebool_expands_nested_conditionals() {
+        let term = simplebool! { (if (if true then true else false) then false else true) };
+
+        assert_eq!(Term::If(box Term::If(box Term::True, box Term::True, box Term::False),
+                            box Term::False,
+                            box Term::True),
+                   term);
+    }
 
     #[test]
     fn add_binding_to_an_empty_context() {
@@ -272,8 +384,8 @@ mod tests {
     #[test]
     fn type_of_abs_is_arrow_of_input_to_output() {
         let ctx = Context::new();
-        let ty = type_of(&ctx, &Term::Abs("x".into(), Type::Bool, box Term::Var(0)))
-            .expect("Should not panic");
+        let term = simplebool! { (λ (x: Bool) . 0) };
+        let ty = type_of(&ctx, &term).expect("Should not panic");
 
         assert_eq!(Type::Arrow(box Type::Bool, box Type::Bool), ty);
     }
@@ -281,11 +393,8 @@ mod tests {
     #[test]
     fn type_of_abs_works_with_nested_abstractions() {
         let ctx = Context::new();
-        let ty = type_of(&ctx,
-                         &Term::Abs("x".into(),
-                                    Type::Bool,
-                                    box Term::Abs("y".into(), Type::Bool, box Term::Var(0))))
-            .expect("Should not panic");
+        let term = simplebool! { (λ (x: Bool) . (λ (y: Bool) . 0)) };
+        let ty = type_of(&ctx, &term).expect("Should not panic");
 
         assert_eq!(Type::Arrow(box Type::Bool,
                                box Type::Arrow(box Type::Bool, box Type::Bool)),
@@ -295,10 +404,8 @@ mod tests {
     #[test]
     fn type_of_app_is_return_type_of_abs() {
         let ctx = Context::new();
-        let ty = type_of(&ctx,
-                         &Term::App(box Term::Abs("x".into(), Type::Bool, box Term::Var(0)),
-                                    box Term::True))
-            .expect("Should not panic");
+        let term = simplebool! { ((λ (x: Bool) . 0) true) };
+        let ty = type_of(&ctx, &term).expect("Should not panic");
 
         assert_eq!(Type::Bool, ty);
     }
