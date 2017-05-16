@@ -30,10 +30,12 @@ use std::result;
 
 pub use syntax::{Term, Type};
 pub use evaluation::eval;
+pub use parser::parse;
 pub use typing::type_of;
 
 mod syntax;
 mod evaluation;
+mod parser;
 mod typing;
 
 /// A type alias for convenience so we can fix the error to our own `Error` type.

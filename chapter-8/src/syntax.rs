@@ -52,16 +52,3 @@ impl fmt::Display for Type {
         }
     }
 }
-
-#[macro_export]
-macro_rules! tyarith {
-    (0) => { Term::Zero };
-    (true) => { Term::True };
-    (false) => { Term::False };
-    (succ $($t1:tt)*) => { Term::Succ(Box::new(tyarith!($($t1)*))) };
-    (pred $($t1:tt)*) => { Term::Pred(Box::new(tyarith!($($t1)*))) };
-    (iszero $($t1:tt)*) => { Term::IsZero(Box::new(tyarith!($($t1)*))) };
-    (if ($($t1:tt)*) then ($($t2:tt)*) else ($($t3:tt)*)) => {
-        Term::If(Box::new(tyarith!($($t1)*)), Box::new(tyarith!($($t2)*)), Box::new(tyarith!($($t3)*)))
-    };
-}

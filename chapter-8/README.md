@@ -5,18 +5,23 @@ An implementation in Rust of the [`tyarith`](https://www.cis.upenn.edu/~bcpierce
 Note this currently requires nightly Rust in order to use [Box syntax and patterns](https://doc.rust-lang.org/book/box-syntax-and-patterns.html).
 
 ```rust
-#[macro_use(tyarith)]
 extern crate tyarith;
 
-use tyarith::{type_of, Term};
+use tyarith::{parse, type_of};
 
 fn main() {
-    let program = tyarith! { if (iszero pred succ 0) then (succ succ pred true) else (0) };
+    let program = parse("if iszero pred succ 0 then succ succ pred true else 0");
 
-    println!("Source program:    {}", program);
-    match type_of(&program) {
-        Ok(t) => println!("Type of program:   {}", t),
-        Err(error) => println!("Type error:        {}", error),
+    match program {
+        Ok(term) => {
+            println!("Source program:    {}", term);
+
+            match type_of(&term) {
+                Ok(t) => println!("Type of program:   {}", t),
+                Err(error) => println!("Type error:        {}", error),
+            }
+        }
+        Err(e) => println!("Parse error:        {}", e),
     }
 }
 ```
