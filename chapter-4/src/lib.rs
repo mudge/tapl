@@ -13,7 +13,7 @@
 //! according to our evaluation rules until no rule applies.
 //!
 //! ```rust
-//! #![feature(box_syntax, box_patterns)]
+//! #![feature(box_syntax)]
 //! use arith::eval;
 //! use arith::Term::{Succ, Pred, Zero, IsZero, True};
 //!
@@ -26,6 +26,8 @@
 
 pub use syntax::Term;
 pub use evaluation::eval;
+pub use parser::parse;
 
 mod syntax;
 mod evaluation;
+mod parser;

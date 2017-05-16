@@ -8,7 +8,7 @@ use Term::{True, False, If, Zero, Succ, Pred, IsZero};
 /// # Example
 ///
 /// ```rust
-/// #![feature(box_syntax, box_patterns)]
+/// #![feature(box_syntax)]
 /// use arith::eval;
 /// use arith::Term::*;
 ///
@@ -25,7 +25,9 @@ fn eval1(t: &Term) -> Option<Term> {
     match *t {
         If(box True, box ref t2, _) => Some(t2.clone()),
         If(box False, _, box ref t3) => Some(t3.clone()),
-        If(box ref t1, ref t2, ref t3) => eval1(t1).map(|t_prime| If(box t_prime, t2.clone(), t3.clone())),
+        If(box ref t1, ref t2, ref t3) => {
+            eval1(t1).map(|t_prime| If(box t_prime, t2.clone(), t3.clone()))
+        }
         Succ(box ref t1) => eval1(t1).map(|t_prime| Succ(box t_prime)),
         Pred(box Zero) => Some(Zero),
         Pred(box Succ(box ref nv1)) if is_numeric_val(nv1) => Some(nv1.clone()),

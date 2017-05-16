@@ -5,16 +5,20 @@ An implementation in Rust of the [`arith`](https://www.cis.upenn.edu/~bcpierce/t
 Note this currently requires nightly Rust in order to use [Box syntax and patterns](https://doc.rust-lang.org/book/box-syntax-and-patterns.html).
 
 ```rust
-#[macro_use(arith)]
 extern crate arith;
 
-use arith::{eval, Term};
+use arith::{parse, eval};
 
 fn main() {
-    let program = arith! { if (iszero pred succ 0) then (succ succ pred 0) else (false) };
+    let program = parse("if iszero pred succ 0 then succ succ pred 0 else false");
 
-    println!("Source program:    {}", program);
-    println!("Evaluated program: {}", eval(&program));
+    match program {
+        Ok(term) => {
+            println!("Source program:    {}", term);
+            println!("Evaluated program: {}", eval(&term));
+        }
+        Err(e) => println!("Parse error:       {}", e),
+    }
 }
 ```
 
