@@ -11,7 +11,6 @@
 
 use std::error;
 use std::fmt;
-use std::str::SplitWhitespace;
 
 use Term;
 
@@ -75,7 +74,7 @@ pub fn parse(input: &str) -> Result<Term, Error> {
     }
 }
 
-fn parse_t(mut tokens: &mut SplitWhitespace) -> Result<Term, Error> {
+fn parse_t(mut tokens: &mut Iterator<Item=&str>) -> Result<Term, Error> {
     match tokens.next() {
         Some("true") => Ok(Term::True),
         Some("false") => Ok(Term::False),
