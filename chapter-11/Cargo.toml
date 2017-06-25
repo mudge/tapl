@@ -1,0 +1,6 @@
+[package]
+name = "fullsimple"
+version = "0.1.0"
+authors = ["Paul Mucur <mudge@mudge.name>"]
+
+[dependencies]
