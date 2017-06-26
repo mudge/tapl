@@ -5,6 +5,6 @@ An implementation in Rust of the [`fullsimple`](https://www.cis.upenn.edu/~bcpie
 Note this currently requires nightly Rust in order to use [Box syntax and patterns](https://doc.rust-lang.org/book/box-syntax-and-patterns.html).
 
 ```
-Source term:    (λy:Bool. ((λx:Bool×Unit. x.1) {true,unit}))
+Source term:    (λy:Bool. ((λx:Bool×Unit. x.1) unit;{true,unit}))
 Resulting type: Bool → Bool
 ```

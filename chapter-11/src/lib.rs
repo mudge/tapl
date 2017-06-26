@@ -51,6 +51,8 @@ pub enum Term {
     If(Box<Term>, Box<Term>, Box<Term>),
     /// The unit.
     Unit,
+    /// A sequence of two terms.
+    Sequence(Box<Term>, Box<Term>),
     /// Acription.
     Ascribe(Box<Term>, Type),
     /// A pair.
@@ -81,6 +83,8 @@ pub enum Error {
     GuardOfConditionalNotABoolean(Type),
     /// An error if the two arms of a conditional do not result in the same type.
     ArmsOfConditionalHaveDifferentTypes(Type, Type),
+    /// An error if the first term in a sequence is not the unit.
+    InvalidSequence(Type),
     /// An error when attempting to project something that cannot be projected.
     CannotProjectType(Type),
     /// An error when attempting to project a field that does not exist.
@@ -97,6 +101,7 @@ impl error::Error for Error {
             Error::ArmsOfConditionalHaveDifferentTypes(_, _) => {
                 "arms of conditional have different types"
             },
+            Error::InvalidSequence(_) => "first term in a sequence not the unit",
             Error::CannotProjectType(_) => "invalid type for projection",
             Error::InvalidProjection(_) => "invalid field for projection",
         }
@@ -123,8 +128,11 @@ impl fmt::Display for Error {
                        ty1,
                        ty2)
             }
-            Error::CannotProjectType(ref ty1) => {
-                write!(f, "cannot project type {}, must be a pair", ty1)
+            Error::InvalidSequence(ref ty) => {
+                write!(f, "expected first term in a sequence to be unit, got {}", ty)
+            }
+            Error::CannotProjectType(ref ty) => {
+                write!(f, "cannot project type {}, must be a pair", ty)
             }
             Error::InvalidProjection(i) => {
                 write!(f, "cannot project field {}, must be 1 or 2", i)
@@ -139,6 +147,14 @@ pub type Context = Vec<(String, Binding)>;
 /// Return the type of the given term with the given context.
 pub fn type_of(ctx: &[(String, Binding)], t: &Term) -> Result<Type, Error> {
     match *t {
+        Term::Sequence(box ref t1, box ref t2) => {
+            let ty_t1 = type_of(ctx, t1)?;
+
+            match ty_t1 {
+                Type::Unit => type_of(ctx, t2),
+                e => Err(Error::InvalidSequence(e)),
+            }
+        }
         Term::Project(box ref t1, i) => {
             let ty_t1 = type_of(ctx, t1)?;
 
@@ -258,6 +274,9 @@ impl fmt::Display for Term {
 /// Pretty-print a `Term` with a given `Context` rather than using de Bruijn indices.
 fn print_term(ctx: &[(String, Binding)], t: &Term) -> String {
     match *t {
+        Term::Sequence(box ref t1, box ref t2) => {
+            format!("{};{}", print_term(ctx, t1), print_term(ctx, t2))
+        }
         Term::Project(box ref t1, i) => {
             format!("{}.{}", print_term(ctx, t1), i)
         }
@@ -312,6 +331,22 @@ macro_rules! simplebool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn type_of_sequence() {
+        let ctx = Context::new();
+        let ty = type_of(&ctx, &Term::Sequence(box Term::Unit, box Term::True));
+
+        assert_eq!(Ok(Type::Bool), ty);
+    }
+
+    #[test]
+    fn type_of_invalid_sequence() {
+        let ctx = Context::new();
+        let ty = type_of(&ctx, &Term::Sequence(box Term::False, box Term::True));
+
+        assert_eq!(Err(Error::InvalidSequence(Type::Bool)), ty);
+    }
 
     #[test]
     fn type_of_pair() {

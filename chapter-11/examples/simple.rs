@@ -5,7 +5,7 @@ use fullsimple::{type_of, Term, Context, Type};
 
 fn main() {
     let ctx = Context::new();
-    let term =  box Term::Abs("y".into(),
+    let term = Term::Abs("y".into(),
         Type::Bool,
         box Term::App(
             box Term::Abs(
@@ -13,7 +13,7 @@ fn main() {
                 Type::Product(box Type::Bool, box Type::Unit),
                 box Term::Project(box Term::Var(0), 1)
             ),
-            box Term::Pair(box Term::True, box Term::Unit)
+            box Term::Sequence(box Term::Unit, box Term::Pair(box Term::True, box Term::Unit))
         )
     );
 
