@@ -5,16 +5,15 @@ use fullsimple::{type_of, Term, Context, Type};
 
 fn main() {
     let ctx = Context::new();
-    let term = Term::Abs("y".into(),
-        Type::Bool,
-        box Term::App(
-            box Term::Abs(
-                "x".into(),
-                Type::Product(box Type::Bool, box Type::Unit),
-                box Term::Project(box Term::Var(0), 1)
-            ),
-            box Term::Sequence(box Term::Unit, box Term::Pair(box Term::True, box Term::Unit))
-        )
+    let term = Term::Case(
+        box Term::Inl(
+            box Term::Pair(box Term::True, box Term::True),
+            Type::Sum(box Type::Product(box Type::Bool, box Type::Bool), box Type::Unit)
+        ),
+        "p".into(),
+        box Term::Project(box Term::Var(0), 1),
+        "u".into(),
+        box Term::False
     );
 
     println!("Source term:    {}", term);

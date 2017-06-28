@@ -21,6 +21,8 @@ pub enum Type {
     Unit,
     /// A Product type.
     Product(Box<Type>, Box<Type>),
+    /// A Sum type.
+    Sum(Box<Type>, Box<Type>),
 }
 
 impl fmt::Display for Type {
@@ -30,6 +32,7 @@ impl fmt::Display for Type {
             Type::Bool => write!(f, "Bool"),
             Type::Unit => write!(f, "Unit"),
             Type::Product(box ref t1, box ref t2) => write!(f, "{}×{}", t1, t2),
+            Type::Sum(box ref t1, box ref t2) => write!(f, "{}+{}", t1, t2),
         }
     }
 }
@@ -59,6 +62,12 @@ pub enum Term {
     Pair(Box<Term>, Box<Term>),
     /// A projection of a pair.
     Project(Box<Term>, u8),
+    /// A constructor for the left side of a Sum type
+    Inl(Box<Term>, Type),
+    /// A constructor for the right side of a Sum type
+    Inr(Box<Term>, Type),
+    /// A case statement for unwrapping a Sum type
+    Case(Box<Term>, String, Box<Term>, String, Box<Term>),
 }
 
 /// The various types of bindings available in a `Context`.
@@ -84,11 +93,13 @@ pub enum Error {
     /// An error if the two arms of a conditional do not result in the same type.
     ArmsOfConditionalHaveDifferentTypes(Type, Type),
     /// An error if the first term in a sequence is not the unit.
-    InvalidSequence(Type),
+    UnitTypeExpected(Type),
     /// An error when attempting to project something that cannot be projected.
-    CannotProjectType(Type),
+    ProductTypeExpected(Type),
     /// An error when attempting to project a field that does not exist.
     InvalidProjection(u8),
+    /// An error if a Sum type constructor is used with a non-Sum type.
+    SumTypeExpected(Type),
 }
 
 impl error::Error for Error {
@@ -101,9 +112,10 @@ impl error::Error for Error {
             Error::ArmsOfConditionalHaveDifferentTypes(_, _) => {
                 "arms of conditional have different types"
             },
-            Error::InvalidSequence(_) => "first term in a sequence not the unit",
-            Error::CannotProjectType(_) => "invalid type for projection",
+            Error::UnitTypeExpected(_) => "first term in a sequence not the unit",
+            Error::ProductTypeExpected(_) => "invalid type for projection",
             Error::InvalidProjection(_) => "invalid field for projection",
+            Error::SumTypeExpected(_) => "sum type expected",
         }
     }
 }
@@ -128,15 +140,16 @@ impl fmt::Display for Error {
                        ty1,
                        ty2)
             }
-            Error::InvalidSequence(ref ty) => {
+            Error::UnitTypeExpected(ref ty) => {
                 write!(f, "expected first term in a sequence to be unit, got {}", ty)
             }
-            Error::CannotProjectType(ref ty) => {
+            Error::ProductTypeExpected(ref ty) => {
                 write!(f, "cannot project type {}, must be a pair", ty)
             }
             Error::InvalidProjection(i) => {
                 write!(f, "cannot project field {}, must be 1 or 2", i)
             }
+            Error::SumTypeExpected(ref ty) => write!(f, "expected sum type, got {}", ty),
         }
     }
 }
@@ -147,26 +160,73 @@ pub type Context = Vec<(String, Binding)>;
 /// Return the type of the given term with the given context.
 pub fn type_of(ctx: &[(String, Binding)], t: &Term) -> Result<Type, Error> {
     match *t {
+        Term::Inl(box ref t1, ref ty) => {
+            match *ty {
+                Type::Sum(box ref left, _) => {
+                    let ty_t1 = type_of(ctx, t1)?;
+
+                    if left == &ty_t1 {
+                        Ok(ty.clone())
+                    } else {
+                        Err(Error::ParameterTypeMismatch(ty_t1, left.clone()))
+                    }
+                }
+                _ => Err(Error::SumTypeExpected(ty.clone()))
+            }
+        }
+        Term::Inr(box ref t1, ref ty) => {
+            match *ty {
+                Type::Sum(_, box ref right) => {
+                    let ty_t1 = type_of(ctx, t1)?;
+
+                    if right == &ty_t1 {
+                        Ok(ty.clone())
+                    } else {
+                        Err(Error::ParameterTypeMismatch(ty_t1, right.clone()))
+                    }
+                }
+                _ => Err(Error::SumTypeExpected(ty.clone()))
+            }
+        }
+        Term::Case(box ref t0, ref x1, box ref t1, ref x2, box ref t2) => {
+            let ty_t0 = type_of(ctx, t0)?;
+
+            match ty_t0 {
+                Type::Sum(box left, box right) => {
+                    let ctx_with_x1 = add_binding(ctx, x1, Binding::VarBind(left));
+                    let ctx_with_x2 = add_binding(ctx, x2, Binding::VarBind(right));
+                    let ty_t1 = type_of(&ctx_with_x1, t1)?;
+                    let ty_t2 = type_of(&ctx_with_x2, t2)?;
+
+                    if ty_t1 == ty_t2 {
+                        Ok(ty_t1)
+                    } else {
+                        Err(Error::ArmsOfConditionalHaveDifferentTypes(ty_t1, ty_t2))
+                    }
+                }
+                _ => Err(Error::SumTypeExpected(ty_t0))
+            }
+        }
         Term::Sequence(box ref t1, box ref t2) => {
             let ty_t1 = type_of(ctx, t1)?;
 
             match ty_t1 {
                 Type::Unit => type_of(ctx, t2),
-                e => Err(Error::InvalidSequence(e)),
+                _ => Err(Error::UnitTypeExpected(ty_t1)),
             }
         }
         Term::Project(box ref t1, i) => {
             let ty_t1 = type_of(ctx, t1)?;
 
             match ty_t1 {
-                Type::Product(box ref ty_t11, box ref ty_t12) => {
+                Type::Product(box ty_t11, box ty_t12) => {
                     match i {
-                        1 => Ok(ty_t11.clone()),
-                        2 => Ok(ty_t12.clone()),
-                        e => Err(Error::InvalidProjection(e)),
+                        1 => Ok(ty_t11),
+                        2 => Ok(ty_t12),
+                        _ => Err(Error::InvalidProjection(i)),
                     }
                 },
-                e => Err(Error::CannotProjectType(e)),
+                _ => Err(Error::ProductTypeExpected(ty_t1)),
             }
         }
         Term::Pair(box ref t1, box ref t2) => {
@@ -178,7 +238,7 @@ pub fn type_of(ctx: &[(String, Binding)], t: &Term) -> Result<Type, Error> {
         Term::Ascribe(box ref t1, ref ty) => {
             let ty_t1 = type_of(ctx, t1)?;
 
-            if ty_t1 == ty.clone() {
+            if ty == &ty_t1 {
                 Ok(ty_t1)
             } else {
                 Err(Error::ParameterTypeMismatch(ty_t1, ty.clone()))
@@ -274,6 +334,18 @@ impl fmt::Display for Term {
 /// Pretty-print a `Term` with a given `Context` rather than using de Bruijn indices.
 fn print_term(ctx: &[(String, Binding)], t: &Term) -> String {
     match *t {
+        Term::Inl(box ref t1, ref ty) => {
+            format!("inl {} as {}", print_term(ctx, t1), ty)
+        }
+        Term::Inr(box ref t1, ref ty) => {
+            format!("inr {} as {}", print_term(ctx, t1), ty)
+        }
+        Term::Case(box ref t0, ref x1, box ref t1, ref x2, box ref t2) => {
+            let (ctx_with_x1, x1_prime) = pick_fresh_name(ctx, x1);
+            let (ctx_with_x2, x2_prime) = pick_fresh_name(ctx, x2);
+
+            format!("case {} of inl {} ⇒ {} | inr {} ⇒ {}", print_term(ctx, t0), x1_prime, print_term(&ctx_with_x1, t1), x2_prime, print_term(&ctx_with_x2, t2))
+        }
         Term::Sequence(box ref t1, box ref t2) => {
             format!("{};{}", print_term(ctx, t1), print_term(ctx, t2))
         }
@@ -333,6 +405,99 @@ mod tests {
     use super::*;
 
     #[test]
+    fn type_of_inl() {
+        let ctx = Context::new();
+        let ty = type_of(&ctx, &Term::Inl(box Term::True, Type::Sum(box Type::Bool, box Type::Unit)));
+
+        assert_eq!(Ok(Type::Sum(box Type::Bool, box Type::Unit)), ty);
+    }
+
+    #[test]
+    fn type_of_bad_inl() {
+        let ctx = Context::new();
+        let ty = type_of(&ctx, &Term::Inl(box Term::Unit, Type::Sum(box Type::Bool, box Type::Unit)));
+
+        assert_eq!(Err(Error::ParameterTypeMismatch(Type::Unit, Type::Bool)), ty);
+    }
+
+    #[test]
+    fn type_of_inl_without_sum_type() {
+        let ctx = Context::new();
+        let ty = type_of(&ctx, &Term::Inl(box Term::Unit, Type::Bool));
+
+        assert_eq!(Err(Error::SumTypeExpected(Type::Bool)), ty);
+    }
+
+    #[test]
+    fn type_of_inr() {
+        let ctx = Context::new();
+        let ty = type_of(&ctx, &Term::Inr(box Term::True, Type::Sum(box Type::Unit, box Type::Bool)));
+
+        assert_eq!(Ok(Type::Sum(box Type::Unit, box Type::Bool)), ty);
+    }
+
+    #[test]
+    fn type_of_bad_inr() {
+        let ctx = Context::new();
+        let ty = type_of(&ctx, &Term::Inr(box Term::True, Type::Sum(box Type::Bool, box Type::Unit)));
+
+        assert_eq!(Err(Error::ParameterTypeMismatch(Type::Bool, Type::Unit)), ty);
+    }
+
+    #[test]
+    fn type_of_inr_without_sum_type() {
+        let ctx = Context::new();
+        let ty = type_of(&ctx, &Term::Inr(box Term::Unit, Type::Bool));
+
+        assert_eq!(Err(Error::SumTypeExpected(Type::Bool)), ty);
+    }
+
+    #[test]
+    fn type_of_case() {
+        let ctx = Context::new();
+        let istruthy = Term::Case(
+            box Term::Inl(box Term::True, Type::Sum(box Type::Bool, box Type::Unit)),
+            "b".into(),
+            box Term::Var(0),
+            "u".into(),
+            box Term::False
+        );
+        let ty = type_of(&ctx, &istruthy);
+
+        assert_eq!(Ok(Type::Bool), ty);
+    }
+
+    #[test]
+    fn type_of_case_with_mismatched_arms() {
+        let ctx = Context::new();
+        let istruthy = Term::Case(
+            box Term::Inl(box Term::True, Type::Sum(box Type::Bool, box Type::Unit)),
+            "b".into(),
+            box Term::Var(0),
+            "u".into(),
+            box Term::Unit
+        );
+        let ty = type_of(&ctx, &istruthy);
+
+        assert_eq!(Err(Error::ArmsOfConditionalHaveDifferentTypes(Type::Bool, Type::Unit)), ty);
+    }
+
+    #[test]
+    fn type_of_case_with_non_sum_type() {
+        let ctx = Context::new();
+        let istruthy = Term::Case(
+            box Term::True,
+            "b".into(),
+            box Term::Var(0),
+            "u".into(),
+            box Term::Unit
+        );
+        let ty = type_of(&ctx, &istruthy);
+
+        assert_eq!(Err(Error::SumTypeExpected(Type::Bool)), ty);
+    }
+
+    #[test]
     fn type_of_sequence() {
         let ctx = Context::new();
         let ty = type_of(&ctx, &Term::Sequence(box Term::Unit, box Term::True));
@@ -345,7 +510,7 @@ mod tests {
         let ctx = Context::new();
         let ty = type_of(&ctx, &Term::Sequence(box Term::False, box Term::True));
 
-        assert_eq!(Err(Error::InvalidSequence(Type::Bool)), ty);
+        assert_eq!(Err(Error::UnitTypeExpected(Type::Bool)), ty);
     }
 
     #[test]
