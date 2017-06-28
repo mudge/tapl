@@ -23,6 +23,8 @@ pub enum Type {
     Product(Box<Type>, Box<Type>),
     /// A Sum type.
     Sum(Box<Type>, Box<Type>),
+    /// A Tuple type.
+    Tuple(Vec<Type>),
 }
 
 impl fmt::Display for Type {
@@ -33,6 +35,11 @@ impl fmt::Display for Type {
             Type::Unit => write!(f, "Unit"),
             Type::Product(box ref t1, box ref t2) => write!(f, "{}×{}", t1, t2),
             Type::Sum(box ref t1, box ref t2) => write!(f, "{}+{}", t1, t2),
+            Type::Tuple(ref ts) => {
+                let types: Vec<String> = ts.iter().map(|t| format!("{}", t)).collect();
+
+                write!(f, "{{{}}}", types.join(","))
+            }
         }
     }
 }
@@ -61,13 +68,15 @@ pub enum Term {
     /// A pair.
     Pair(Box<Term>, Box<Term>),
     /// A projection of a pair.
-    Project(Box<Term>, u8),
+    Project(Box<Term>, usize),
     /// A constructor for the left side of a Sum type
     Inl(Box<Term>, Type),
     /// A constructor for the right side of a Sum type
     Inr(Box<Term>, Type),
     /// A case statement for unwrapping a Sum type
     Case(Box<Term>, String, Box<Term>, String, Box<Term>),
+    /// A tuple of terms
+    Tuple(Vec<Term>),
 }
 
 /// The various types of bindings available in a `Context`.
@@ -95,9 +104,9 @@ pub enum Error {
     /// An error if the first term in a sequence is not the unit.
     UnitTypeExpected(Type),
     /// An error when attempting to project something that cannot be projected.
-    ProductTypeExpected(Type),
+    ProjectableTypeExpected(Type),
     /// An error when attempting to project a field that does not exist.
-    InvalidProjection(u8),
+    InvalidProjection(usize),
     /// An error if a Sum type constructor is used with a non-Sum type.
     SumTypeExpected(Type),
 }
@@ -113,7 +122,7 @@ impl error::Error for Error {
                 "arms of conditional have different types"
             },
             Error::UnitTypeExpected(_) => "first term in a sequence not the unit",
-            Error::ProductTypeExpected(_) => "invalid type for projection",
+            Error::ProjectableTypeExpected(_) => "invalid type for projection",
             Error::InvalidProjection(_) => "invalid field for projection",
             Error::SumTypeExpected(_) => "sum type expected",
         }
@@ -143,8 +152,8 @@ impl fmt::Display for Error {
             Error::UnitTypeExpected(ref ty) => {
                 write!(f, "expected first term in a sequence to be unit, got {}", ty)
             }
-            Error::ProductTypeExpected(ref ty) => {
-                write!(f, "cannot project type {}, must be a pair", ty)
+            Error::ProjectableTypeExpected(ref ty) => {
+                write!(f, "cannot project type {}, must be a Product or Tuple", ty)
             }
             Error::InvalidProjection(i) => {
                 write!(f, "cannot project field {}, must be 1 or 2", i)
@@ -160,6 +169,11 @@ pub type Context = Vec<(String, Binding)>;
 /// Return the type of the given term with the given context.
 pub fn type_of(ctx: &[(String, Binding)], t: &Term) -> Result<Type, Error> {
     match *t {
+        Term::Tuple(ref ts) => {
+            let tys = ts.iter().map(|t| type_of(ctx, t)).collect::<Result<Vec<Type>, Error>>()?;
+
+            Ok(Type::Tuple(tys))
+        }
         Term::Inl(box ref t1, ref ty) => {
             match *ty {
                 Type::Sum(box ref left, _) => {
@@ -226,7 +240,10 @@ pub fn type_of(ctx: &[(String, Binding)], t: &Term) -> Result<Type, Error> {
                         _ => Err(Error::InvalidProjection(i)),
                     }
                 },
-                _ => Err(Error::ProductTypeExpected(ty_t1)),
+                Type::Tuple(ts) => {
+                    ts.get(i - 1).map(|t| t.clone()).ok_or_else(|| Error::InvalidProjection(i))
+                }
+                _ => Err(Error::ProjectableTypeExpected(ty_t1)),
             }
         }
         Term::Pair(box ref t1, box ref t2) => {
@@ -334,6 +351,11 @@ impl fmt::Display for Term {
 /// Pretty-print a `Term` with a given `Context` rather than using de Bruijn indices.
 fn print_term(ctx: &[(String, Binding)], t: &Term) -> String {
     match *t {
+        Term::Tuple(ref ts) => {
+            let terms: Vec<String> = ts.iter().map(|t| print_term(ctx, t)).collect();
+
+            format!("{{{}}}", terms.join(","))
+        }
         Term::Inl(box ref t1, ref ty) => {
             format!("inl {} as {}", print_term(ctx, t1), ty)
         }
@@ -772,5 +794,28 @@ mod tests {
                          &Term::If(box Term::Var(0), box Term::True, box Term::False));
 
         assert!(ty.is_err());
+    }
+
+    #[test]
+    fn displaying_a_tuple() {
+        let tuple = Type::Tuple(vec![Type::Bool, Type::Unit, Type::Arrow(box Type::Bool, box Type::Bool)]);
+
+        assert_eq!("{Bool, Unit, Bool → Bool}", format!("{}", tuple));
+    }
+
+    #[test]
+    fn type_of_tuple() {
+        let ctx = Context::new();
+        let ty = type_of(&ctx, &Term::Tuple(vec![Term::True, Term::False, Term::Unit]));
+
+        assert_eq!(Ok(Type::Tuple(vec![Type::Bool, Type::Bool, Type::Unit])), ty);
+    }
+
+    #[test]
+    fn projecting_a_tuple() {
+        let ctx = Context::new();
+        let ty = type_of(&ctx, &Term::Project(box Term::Tuple(vec![Term::True, Term::False, Term::Unit]), 1));
+
+        assert_eq!(Ok(Type::Bool), ty);
     }
 }

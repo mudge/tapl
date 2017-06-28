@@ -8,7 +8,7 @@ fn main() {
     let term = Term::Case(
         box Term::Inl(
             box Term::Pair(box Term::True, box Term::True),
-            Type::Sum(box Type::Product(box Type::Bool, box Type::Bool), box Type::Unit)
+            Type::Sum(box Type::Product(box Type::Bool, box Type::Bool), box Type::Tuple(vec![Type::Unit, Type::Unit, Type::Unit]))
         ),
         "p".into(),
         box Term::Project(box Term::Var(0), 1),
