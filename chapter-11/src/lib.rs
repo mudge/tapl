@@ -241,7 +241,7 @@ pub fn type_of(ctx: &[(String, Binding)], t: &Term) -> Result<Type, Error> {
                     }
                 },
                 Type::Tuple(ts) => {
-                    ts.get(i - 1).map(|t| t.clone()).ok_or_else(|| Error::InvalidProjection(i))
+                    ts.get(i - 1).cloned().ok_or_else(|| Error::InvalidProjection(i))
                 }
                 _ => Err(Error::ProjectableTypeExpected(ty_t1)),
             }
@@ -800,7 +800,7 @@ mod tests {
     fn displaying_a_tuple() {
         let tuple = Type::Tuple(vec![Type::Bool, Type::Unit, Type::Arrow(box Type::Bool, box Type::Bool)]);
 
-        assert_eq!("{Bool, Unit, Bool → Bool}", format!("{}", tuple));
+        assert_eq!("{Bool,Unit,Bool → Bool}", format!("{}", tuple));
     }
 
     #[test]
@@ -809,6 +809,14 @@ mod tests {
         let ty = type_of(&ctx, &Term::Tuple(vec![Term::True, Term::False, Term::Unit]));
 
         assert_eq!(Ok(Type::Tuple(vec![Type::Bool, Type::Bool, Type::Unit])), ty);
+    }
+
+    #[test]
+    fn type_of_tuple_with_type_errors() {
+        let ctx = Context::new();
+        let ty = type_of(&ctx, &Term::Tuple(vec![Term::Inl(box Term::True, Type::Unit)]));
+
+        assert_eq!(Err(Error::SumTypeExpected(Type::Unit)), ty);
     }
 
     #[test]
