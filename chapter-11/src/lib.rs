@@ -179,7 +179,7 @@ pub fn type_of(ctx: &[(String, Binding)], t: &Term) -> Result<Type, Error> {
                 Type::Sum(box ref left, _) => {
                     let ty_t1 = type_of(ctx, t1)?;
 
-                    if left == &ty_t1 {
+                    if ty_t1 == *left {
                         Ok(ty.clone())
                     } else {
                         Err(Error::ParameterTypeMismatch(ty_t1, left.clone()))
@@ -193,7 +193,7 @@ pub fn type_of(ctx: &[(String, Binding)], t: &Term) -> Result<Type, Error> {
                 Type::Sum(_, box ref right) => {
                     let ty_t1 = type_of(ctx, t1)?;
 
-                    if right == &ty_t1 {
+                    if ty_t1 == *right {
                         Ok(ty.clone())
                     } else {
                         Err(Error::ParameterTypeMismatch(ty_t1, right.clone()))
@@ -255,7 +255,7 @@ pub fn type_of(ctx: &[(String, Binding)], t: &Term) -> Result<Type, Error> {
         Term::Ascribe(box ref t1, ref ty) => {
             let ty_t1 = type_of(ctx, t1)?;
 
-            if ty == &ty_t1 {
+            if ty_t1 == *ty {
                 Ok(ty_t1)
             } else {
                 Err(Error::ParameterTypeMismatch(ty_t1, ty.clone()))
