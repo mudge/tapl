@@ -10,6 +10,6 @@ fn main() {
             println!("Source program:    {}", term);
             println!("Evaluated program: {}", eval(&term));
         }
-        Err(e) => println!("Parse error:       {}", e),
+        Err(e) => println!("Parse error:       {:?}", e),
     }
 }

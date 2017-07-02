@@ -26,8 +26,29 @@
 
 pub use syntax::Term;
 pub use evaluation::eval;
-pub use parser::parse;
+pub use grammar::parse_Term as parse;
 
 mod syntax;
 mod evaluation;
-mod parser;
+mod grammar;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn arith() {
+        assert_eq!(Ok(Term::True), parse("true"));
+        assert_eq!(Ok(Term::False), parse("false"));
+        assert_eq!(Ok(Term::Zero), parse("0"));
+        assert_eq!(Ok(Term::Pred(Box::new(Term::Zero))), parse("pred 0"));
+        assert_eq!(Ok(Term::Succ(Box::new(Term::Zero))), parse("succ 0"));
+        assert_eq!(Ok(Term::IsZero(Box::new(Term::Zero))), parse("iszero 0"));
+        assert_eq!(Ok(Term::If(Box::new(Term::True),
+                               Box::new(Term::Zero),
+                               Box::new(Term::Succ(Box::new(Term::Zero))))),
+                   parse("if true then 0 else succ 0"));
+        assert_eq!(Ok(Term::Succ(Box::new(Term::Pred(Box::new(Term::Zero))))),
+                   parse("succ pred 0"));
+    }
+}

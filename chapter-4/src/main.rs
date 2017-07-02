@@ -1,7 +1,7 @@
 extern crate arith;
 
 use std::io::{self, Read};
-use arith::{parse, eval};
+use arith::{eval, parse};
 
 fn main() {
     let mut buffer = String::new();
@@ -14,9 +14,9 @@ fn main() {
                     println!("Source program:    {}", term);
                     println!("Evaluated program: {}", eval(&term));
                 }
-                Err(e) => println!("Parse error:       {}", e),
+                Err(e) => println!("Parse error:       {:?}", e),
             }
-        },
+        }
         _ => println!("Could not read from STDIN!"),
     }
 }

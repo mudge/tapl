@@ -1,0 +1,13 @@
+use Term;
+
+grammar;
+
+pub Term: Term = {
+    "if" <t1:Term> "then" <t2:Term> "else" <t3:Term> => Term::If(Box::new(t1), Box::new(t2), Box::new(t3)),
+    "succ" <Term> => Term::Succ(Box::new(<>)),
+    "pred" <Term> => Term::Pred(Box::new(<>)),
+    "iszero" <Term> => Term::IsZero(Box::new(<>)),
+    "true" => Term::True,
+    "false" => Term::False,
+    "0" => Term::Zero,
+};
