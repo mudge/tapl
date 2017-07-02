@@ -1,0 +1,92 @@
+use {Term, Type};
+
+grammar;
+
+match {
+    r"[a-z]'*" => Name,
+    r"(→|->)" => ThinArrow,
+    r"(⇒|=>)" => FatArrow,
+    r"(λ|lambda)" => Lambda,
+    r"(×|\*)" => Times,
+    _
+}
+
+pub Term: Term = {
+    <t1:Application> ";" <t2:Term> => Term::Sequence(Box::new(t1), Box::new(t2)),
+    Application,
+};
+
+Application: Term = {
+    <t1:Application> <t2:Abstraction> => Term::App(Box::new(t1), Box::new(t2)),
+    Abstraction,
+};
+
+Abstraction: Term = {
+    Lambda <x:Variable> ":" <ty:Type> "." <t:Abstraction> => Term::Abs(x, ty, Box::new(t)),
+    Condition,
+};
+
+Condition: Term = {
+    "if" <t1:Condition> "then" <t2:Condition> "else" <t3:Condition> => Term::If(Box::new(t1), Box::new(t2), Box::new(t3)),
+    "case" <t0:Condition> "of" "inl" <x1:Variable> FatArrow <t1:Condition> "|" "inr" <x2:Variable> FatArrow <t2:Condition> => Term::Case(Box::new(t0), x1, Box::new(t1), x2, Box::new(t2)),
+    Ascription,
+};
+
+Ascription: Term = {
+    <t:Ascription> "as" <ty:Type> => Term::Ascribe(Box::new(t), ty),
+    Terminal,
+};
+
+Terminal: Term = {
+    "{" <t:Terminal> "," <ts:(<Terminal> ",")+> <tn:Terminal> "}" => {
+        let mut types = vec![t];
+        types.extend_from_slice(&ts);
+        types.push(tn);
+
+        Term::Tuple(types)
+    },
+    "{" <t1:Terminal> "," <t2:Terminal> "}" => Term::Pair(Box::new(t1), Box::new(t2)),
+    <t:Terminal> "." <i:Index> => Term::Project(Box::new(t), i),
+    "inl" <t:Terminal> "as" <ty:Type> => Term::Inl(Box::new(t), ty),
+    "inr" <t:Terminal> "as" <ty:Type> => Term::Inr(Box::new(t), ty),
+    "true" => Term::True,
+    "false" => Term::False,
+    "unit" => Term::Unit,
+    Index => Term::Var(<>),
+    "(" <Term> ")",
+};
+
+pub Type: Type = {
+    <ty1:ProductType> "+" <ty2:Type> => Type::Sum(Box::new(ty1), Box::new(ty2)),
+    ProductType,
+};
+
+ProductType: Type = {
+    <ty1:ArrowType> Times <ty2:ProductType> => Type::Product(Box::new(ty1), Box::new(ty2)),
+    ArrowType,
+};
+
+ArrowType: Type = {
+    <ty1:TerminalType> ThinArrow <ty2:ArrowType> => Type::Arrow(Box::new(ty1), Box::new(ty2)),
+    TerminalType,
+};
+
+TerminalType: Type = {
+    "{" <tys:(<Type> ",")+> <tyn:Type> "}" => {
+        let mut types = tys;
+        types.push(tyn);
+
+        Type::Tuple(types)
+    },
+    "Bool" => Type::Bool,
+    "Unit" => Type::Unit,
+    "(" <Type> ")",
+};
+
+Variable: String = {
+    Name => <>.to_owned(),
+};
+
+Index: usize = {
+    r"[0-9]+" => <>.parse().unwrap()
+};

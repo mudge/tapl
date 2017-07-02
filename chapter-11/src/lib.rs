@@ -10,6 +10,10 @@
 use std::error;
 use std::fmt;
 
+pub use grammar::parse_Term as parse;
+
+mod grammar;
+
 /// Available types in this language.
 #[derive(PartialEq, Debug, Clone)]
 pub enum Type {
@@ -120,7 +124,7 @@ impl error::Error for Error {
             Error::GuardOfConditionalNotABoolean(_) => "guard of conditional not a boolean",
             Error::ArmsOfConditionalHaveDifferentTypes(_, _) => {
                 "arms of conditional have different types"
-            },
+            }
             Error::UnitTypeExpected(_) => "first term in a sequence not the unit",
             Error::ProjectableTypeExpected(_) => "invalid type for projection",
             Error::InvalidProjection(_) => "invalid field for projection",
@@ -150,14 +154,14 @@ impl fmt::Display for Error {
                        ty2)
             }
             Error::UnitTypeExpected(ref ty) => {
-                write!(f, "expected first term in a sequence to be unit, got {}", ty)
+                write!(f,
+                       "expected first term in a sequence to be unit, got {}",
+                       ty)
             }
             Error::ProjectableTypeExpected(ref ty) => {
                 write!(f, "cannot project type {}, must be a Product or Tuple", ty)
             }
-            Error::InvalidProjection(i) => {
-                write!(f, "cannot project field {}, must be 1 or 2", i)
-            }
+            Error::InvalidProjection(i) => write!(f, "cannot project field {}, must be 1 or 2", i),
             Error::SumTypeExpected(ref ty) => write!(f, "expected sum type, got {}", ty),
         }
     }
@@ -185,7 +189,7 @@ pub fn type_of(ctx: &[(String, Binding)], t: &Term) -> Result<Type, Error> {
                         Err(Error::ParameterTypeMismatch(ty_t1, left.clone()))
                     }
                 }
-                _ => Err(Error::SumTypeExpected(ty.clone()))
+                _ => Err(Error::SumTypeExpected(ty.clone())),
             }
         }
         Term::Inr(box ref t1, ref ty) => {
@@ -199,7 +203,7 @@ pub fn type_of(ctx: &[(String, Binding)], t: &Term) -> Result<Type, Error> {
                         Err(Error::ParameterTypeMismatch(ty_t1, right.clone()))
                     }
                 }
-                _ => Err(Error::SumTypeExpected(ty.clone()))
+                _ => Err(Error::SumTypeExpected(ty.clone())),
             }
         }
         Term::Case(box ref t0, ref x1, box ref t1, ref x2, box ref t2) => {
@@ -218,7 +222,7 @@ pub fn type_of(ctx: &[(String, Binding)], t: &Term) -> Result<Type, Error> {
                         Err(Error::ArmsOfConditionalHaveDifferentTypes(ty_t1, ty_t2))
                     }
                 }
-                _ => Err(Error::SumTypeExpected(ty_t0))
+                _ => Err(Error::SumTypeExpected(ty_t0)),
             }
         }
         Term::Sequence(box ref t1, box ref t2) => {
@@ -239,7 +243,7 @@ pub fn type_of(ctx: &[(String, Binding)], t: &Term) -> Result<Type, Error> {
                         2 => Ok(ty_t12),
                         _ => Err(Error::InvalidProjection(i)),
                     }
-                },
+                }
                 Type::Tuple(ts) => {
                     ts.get(i - 1).cloned().ok_or_else(|| Error::InvalidProjection(i))
                 }
@@ -356,30 +360,27 @@ fn print_term(ctx: &[(String, Binding)], t: &Term) -> String {
 
             format!("{{{}}}", terms.join(","))
         }
-        Term::Inl(box ref t1, ref ty) => {
-            format!("inl {} as {}", print_term(ctx, t1), ty)
-        }
-        Term::Inr(box ref t1, ref ty) => {
-            format!("inr {} as {}", print_term(ctx, t1), ty)
-        }
+        Term::Inl(box ref t1, ref ty) => format!("inl {} as {}", print_term(ctx, t1), ty),
+        Term::Inr(box ref t1, ref ty) => format!("inr {} as {}", print_term(ctx, t1), ty),
         Term::Case(box ref t0, ref x1, box ref t1, ref x2, box ref t2) => {
             let (ctx_with_x1, x1_prime) = pick_fresh_name(ctx, x1);
             let (ctx_with_x2, x2_prime) = pick_fresh_name(ctx, x2);
 
-            format!("case {} of inl {} ⇒ {} | inr {} ⇒ {}", print_term(ctx, t0), x1_prime, print_term(&ctx_with_x1, t1), x2_prime, print_term(&ctx_with_x2, t2))
+            format!("case {} of inl {} ⇒ {} | inr {} ⇒ {}",
+                    print_term(ctx, t0),
+                    x1_prime,
+                    print_term(&ctx_with_x1, t1),
+                    x2_prime,
+                    print_term(&ctx_with_x2, t2))
         }
         Term::Sequence(box ref t1, box ref t2) => {
             format!("{};{}", print_term(ctx, t1), print_term(ctx, t2))
         }
-        Term::Project(box ref t1, i) => {
-            format!("{}.{}", print_term(ctx, t1), i)
-        }
+        Term::Project(box ref t1, i) => format!("{}.{}", print_term(ctx, t1), i),
         Term::Pair(box ref t1, box ref t2) => {
             format!("{{{},{}}}", print_term(ctx, t1), print_term(ctx, t2))
         }
-        Term::Ascribe(box ref t1, ref ty) => {
-            format!("{} as {}", print_term(ctx, t1), ty)
-        }
+        Term::Ascribe(box ref t1, ref ty) => format!("{} as {}", print_term(ctx, t1), ty),
         Term::Abs(ref x, ref ty, box ref t1) => {
             let (ctx_prime, x_prime) = pick_fresh_name(ctx, x);
 
@@ -395,31 +396,12 @@ fn print_term(ctx: &[(String, Binding)], t: &Term) -> String {
         Term::False => "false".into(),
         Term::Unit => "unit".into(),
         Term::If(box ref t1, box ref t2, box ref t3) => {
-            format!("if {} then {} else {}", t1, t2, t3)
+            format!("if {} then {} else {}",
+                    print_term(ctx, t1),
+                    print_term(ctx, t2),
+                    print_term(ctx, t3))
         }
     }
-}
-
-#[macro_export]
-macro_rules! simplebool {
-    ({$t1:tt , $t2:tt}) => { Term::Pair(Box::new(simplebool!($t1)), Box::new(simplebool!($t2))) };
-    (($t1:tt as $($ty:tt)+)) => { Term::Ascribe(Box::new(simplebool!($t1)), simplebool!($($ty)*)) };
-    (unit) => { Term::Unit };
-    (Bool) => { Type::Bool };
-    (Unit) => { Type::Unit };
-    (true) => { Term::True };
-    (false) => { Term::False };
-    ((if $t1:tt then $t2:tt else $t3:tt)) => {
-        Term::If(Box::new(simplebool!($t1)), Box::new(simplebool!($t2)), Box::new(simplebool!($t3)))
-    };
-    ((λ ($x:ident : $($ty:tt)+) . $t1:tt)) => {
-        Term::Abs(stringify!($x).into(), simplebool!($($ty)*), Box::new(simplebool!($t1)))
-    };
-    (($t1:tt $t2:tt)) => { Term::App(Box::new(simplebool!($t1)), Box::new(simplebool!($t2))) };
-    ($x:expr) => { Term::Var($x) };
-    ($ty1:ident -> $($ty2:tt)*) => {
-        Type::Arrow(Box::new(simplebool!($ty1)), Box::new(simplebool!($($ty2)*)))
-    };
 }
 
 #[cfg(test)]
@@ -429,7 +411,8 @@ mod tests {
     #[test]
     fn type_of_inl() {
         let ctx = Context::new();
-        let ty = type_of(&ctx, &Term::Inl(box Term::True, Type::Sum(box Type::Bool, box Type::Unit)));
+        let ty = type_of(&ctx,
+                         &Term::Inl(box Term::True, Type::Sum(box Type::Bool, box Type::Unit)));
 
         assert_eq!(Ok(Type::Sum(box Type::Bool, box Type::Unit)), ty);
     }
@@ -437,9 +420,11 @@ mod tests {
     #[test]
     fn type_of_bad_inl() {
         let ctx = Context::new();
-        let ty = type_of(&ctx, &Term::Inl(box Term::Unit, Type::Sum(box Type::Bool, box Type::Unit)));
+        let ty = type_of(&ctx,
+                         &Term::Inl(box Term::Unit, Type::Sum(box Type::Bool, box Type::Unit)));
 
-        assert_eq!(Err(Error::ParameterTypeMismatch(Type::Unit, Type::Bool)), ty);
+        assert_eq!(Err(Error::ParameterTypeMismatch(Type::Unit, Type::Bool)),
+                   ty);
     }
 
     #[test]
@@ -453,7 +438,8 @@ mod tests {
     #[test]
     fn type_of_inr() {
         let ctx = Context::new();
-        let ty = type_of(&ctx, &Term::Inr(box Term::True, Type::Sum(box Type::Unit, box Type::Bool)));
+        let ty = type_of(&ctx,
+                         &Term::Inr(box Term::True, Type::Sum(box Type::Unit, box Type::Bool)));
 
         assert_eq!(Ok(Type::Sum(box Type::Unit, box Type::Bool)), ty);
     }
@@ -461,9 +447,11 @@ mod tests {
     #[test]
     fn type_of_bad_inr() {
         let ctx = Context::new();
-        let ty = type_of(&ctx, &Term::Inr(box Term::True, Type::Sum(box Type::Bool, box Type::Unit)));
+        let ty = type_of(&ctx,
+                         &Term::Inr(box Term::True, Type::Sum(box Type::Bool, box Type::Unit)));
 
-        assert_eq!(Err(Error::ParameterTypeMismatch(Type::Bool, Type::Unit)), ty);
+        assert_eq!(Err(Error::ParameterTypeMismatch(Type::Bool, Type::Unit)),
+                   ty);
     }
 
     #[test]
@@ -477,13 +465,12 @@ mod tests {
     #[test]
     fn type_of_case() {
         let ctx = Context::new();
-        let istruthy = Term::Case(
-            box Term::Inl(box Term::True, Type::Sum(box Type::Bool, box Type::Unit)),
-            "b".into(),
-            box Term::Var(0),
-            "u".into(),
-            box Term::False
-        );
+        let istruthy = Term::Case(box Term::Inl(box Term::True,
+                                                Type::Sum(box Type::Bool, box Type::Unit)),
+                                  "b".into(),
+                                  box Term::Var(0),
+                                  "u".into(),
+                                  box Term::False);
         let ty = type_of(&ctx, &istruthy);
 
         assert_eq!(Ok(Type::Bool), ty);
@@ -492,28 +479,26 @@ mod tests {
     #[test]
     fn type_of_case_with_mismatched_arms() {
         let ctx = Context::new();
-        let istruthy = Term::Case(
-            box Term::Inl(box Term::True, Type::Sum(box Type::Bool, box Type::Unit)),
-            "b".into(),
-            box Term::Var(0),
-            "u".into(),
-            box Term::Unit
-        );
+        let istruthy = Term::Case(box Term::Inl(box Term::True,
+                                                Type::Sum(box Type::Bool, box Type::Unit)),
+                                  "b".into(),
+                                  box Term::Var(0),
+                                  "u".into(),
+                                  box Term::Unit);
         let ty = type_of(&ctx, &istruthy);
 
-        assert_eq!(Err(Error::ArmsOfConditionalHaveDifferentTypes(Type::Bool, Type::Unit)), ty);
+        assert_eq!(Err(Error::ArmsOfConditionalHaveDifferentTypes(Type::Bool, Type::Unit)),
+                   ty);
     }
 
     #[test]
     fn type_of_case_with_non_sum_type() {
         let ctx = Context::new();
-        let istruthy = Term::Case(
-            box Term::True,
-            "b".into(),
-            box Term::Var(0),
-            "u".into(),
-            box Term::Unit
-        );
+        let istruthy = Term::Case(box Term::True,
+                                  "b".into(),
+                                  box Term::Var(0),
+                                  "u".into(),
+                                  box Term::Unit);
         let ty = type_of(&ctx, &istruthy);
 
         assert_eq!(Err(Error::SumTypeExpected(Type::Bool)), ty);
@@ -568,82 +553,84 @@ mod tests {
     }
 
     #[test]
-    fn simplebool_expands_bool_to_type() {
-        let ty = simplebool! { Bool };
+    fn parse_term_expands_bool_to_type() {
+        let ty = grammar::parse_Type("Bool");
 
-        assert_eq!(Type::Bool, ty);
+        assert_eq!(Ok(Type::Bool), ty);
     }
 
     #[test]
-    fn simplebool_expands_arrow_to_arrow_type() {
-        let ty = simplebool! { Bool -> Bool };
+    fn parse_term_expands_arrow_to_arrow_type() {
+        let ty = grammar::parse_Type("Bool -> Bool");
 
-        assert_eq!(Type::Arrow(box Type::Bool, box Type::Bool), ty);
+        assert_eq!(Ok(Type::Arrow(box Type::Bool, box Type::Bool)), ty);
     }
 
     #[test]
-    fn simplebool_expands_nested_arrows() {
-        let ty = simplebool! { Bool -> Bool -> Bool -> Bool };
+    fn parse_term_expands_nested_arrows() {
+        let ty = grammar::parse_Type("Bool -> Bool -> Bool -> Bool");
 
-        assert_eq!(Type::Arrow(box Type::Bool,
-                               box Type::Arrow(box Type::Bool,
-                                               box Type::Arrow(box Type::Bool, box Type::Bool))),
+        assert_eq!(Ok(Type::Arrow(box Type::Bool,
+                                  box Type::Arrow(box Type::Bool,
+                                                  box Type::Arrow(box Type::Bool,
+                                                                  box Type::Bool)))),
                    ty);
     }
 
     #[test]
-    fn simplebool_expands_abstractions_with_type_annotations() {
-        let term = simplebool! { (λ (x : Bool) . 0) };
+    fn parse_term_expands_abstractions_with_type_annotations() {
+        let term = grammar::parse_Term("λx:Bool . 0");
 
-        assert_eq!(Term::Abs("x".into(), Type::Bool, box Term::Var(0)), term);
-    }
-
-    #[test]
-    fn simplebool_expands_abstractions_with_arrow_type_annotations() {
-        let term = simplebool! { (λ (x : Bool -> Bool) . 0) };
-
-        assert_eq!(Term::Abs("x".into(),
-                             Type::Arrow(box Type::Bool, box Type::Bool),
-                             box Term::Var(0)),
+        assert_eq!(Ok(Term::Abs("x".into(), Type::Bool, box Term::Var(0))),
                    term);
     }
 
     #[test]
-    fn simplebool_expands_abstractions_with_nested_arrow_type_annotations() {
-        let term = simplebool! { (λ (x : Bool -> Bool -> Bool) . 0) };
+    fn parse_term_expands_abstractions_with_arrow_type_annotations() {
+        let term = grammar::parse_Term("λx:Bool->Bool . 0");
 
-        assert_eq!(Term::Abs("x".into(),
-                             Type::Arrow(box Type::Bool,
-                                         box Type::Arrow(box Type::Bool, box Type::Bool)),
-                             box Term::Var(0)),
+        assert_eq!(Ok(Term::Abs("x".into(),
+                                Type::Arrow(box Type::Bool, box Type::Bool),
+                                box Term::Var(0))),
                    term);
     }
 
     #[test]
-    fn simplebool_expands_applications() {
-        let term = simplebool! { ((λ (x : Bool) . 0) true) };
+    fn parse_term_expands_abstractions_with_nested_arrow_type_annotations() {
+        let term = grammar::parse_Term("λx:Bool->Bool->Bool . 0");
 
-        assert_eq!(Term::App(box Term::Abs("x".into(), Type::Bool, box Term::Var(0)),
-                             box Term::True),
+        assert_eq!(Ok(Term::Abs("x".into(),
+                                Type::Arrow(box Type::Bool,
+                                            box Type::Arrow(box Type::Bool, box Type::Bool)),
+                                box Term::Var(0))),
                    term);
     }
 
     #[test]
-    fn simplebool_expands_applications_with_more_complicated_terms() {
-        let term = simplebool! { ((λ (x : Bool) . 0) (if true then true else false)) };
+    fn parse_term_expands_applications() {
+        let term = grammar::parse_Term("λx:Bool . 0 true");
 
-        assert_eq!(Term::App(box Term::Abs("x".into(), Type::Bool, box Term::Var(0)),
-                             box Term::If(box Term::True, box Term::True, box Term::False)),
+        assert_eq!(Ok(Term::App(box Term::Abs("x".into(), Type::Bool, box Term::Var(0)),
+                                box Term::True)),
                    term);
     }
 
     #[test]
-    fn simplebool_expands_nested_conditionals() {
-        let term = simplebool! { (if (if true then true else false) then false else true) };
+    fn parse_term_expands_applications_with_more_complicated_terms() {
+        let term = grammar::parse_Term("λx:Bool . 0 if true then true else false");
 
-        assert_eq!(Term::If(box Term::If(box Term::True, box Term::True, box Term::False),
-                            box Term::False,
-                            box Term::True),
+        assert_eq!(Ok(Term::App(box Term::Abs("x".into(), Type::Bool, box Term::Var(0)),
+                                box Term::If(box Term::True, box Term::True, box Term::False))),
+                   term);
+    }
+
+    #[test]
+    fn parse_term_expands_nested_conditionals() {
+        let term = grammar::parse_Term("if if true then true else false then false else true");
+
+        assert_eq!(Ok(Term::If(box Term::If(box Term::True, box Term::True, box Term::False),
+                               box Term::False,
+                               box Term::True)),
                    term);
     }
 
@@ -708,7 +695,7 @@ mod tests {
     #[test]
     fn type_of_abs_is_arrow_of_input_to_output() {
         let ctx = Context::new();
-        let term = simplebool! { (λ (x: Bool) . 0) };
+        let term = grammar::parse_Term("λx:Bool . 0").unwrap();
         let ty = type_of(&ctx, &term).expect("Should not panic");
 
         assert_eq!(Type::Arrow(box Type::Bool, box Type::Bool), ty);
@@ -717,7 +704,7 @@ mod tests {
     #[test]
     fn type_of_abs_works_with_nested_abstractions() {
         let ctx = Context::new();
-        let term = simplebool! { (λ (x: Bool) . (λ (y: Bool) . 0)) };
+        let term = grammar::parse_Term("λx:Bool. λy:Bool. 0").unwrap();
         let ty = type_of(&ctx, &term).expect("Should not panic");
 
         assert_eq!(Type::Arrow(box Type::Bool,
@@ -728,7 +715,7 @@ mod tests {
     #[test]
     fn type_of_app_is_return_type_of_abs() {
         let ctx = Context::new();
-        let term = simplebool! { ((λ (x: Bool) . 0) true) };
+        let term = grammar::parse_Term("λx:Bool . 0 true").unwrap();
         let ty = type_of(&ctx, &term).expect("Should not panic");
 
         assert_eq!(Type::Bool, ty);
@@ -798,7 +785,8 @@ mod tests {
 
     #[test]
     fn displaying_a_tuple() {
-        let tuple = Type::Tuple(vec![Type::Bool, Type::Unit, Type::Arrow(box Type::Bool, box Type::Bool)]);
+        let tuple =
+            Type::Tuple(vec![Type::Bool, Type::Unit, Type::Arrow(box Type::Bool, box Type::Bool)]);
 
         assert_eq!("{Bool,Unit,Bool → Bool}", format!("{}", tuple));
     }
@@ -806,15 +794,18 @@ mod tests {
     #[test]
     fn type_of_tuple() {
         let ctx = Context::new();
-        let ty = type_of(&ctx, &Term::Tuple(vec![Term::True, Term::False, Term::Unit]));
+        let ty = type_of(&ctx,
+                         &Term::Tuple(vec![Term::True, Term::False, Term::Unit]));
 
-        assert_eq!(Ok(Type::Tuple(vec![Type::Bool, Type::Bool, Type::Unit])), ty);
+        assert_eq!(Ok(Type::Tuple(vec![Type::Bool, Type::Bool, Type::Unit])),
+                   ty);
     }
 
     #[test]
     fn type_of_tuple_with_type_errors() {
         let ctx = Context::new();
-        let ty = type_of(&ctx, &Term::Tuple(vec![Term::Inl(box Term::True, Type::Unit)]));
+        let ty = type_of(&ctx,
+                         &Term::Tuple(vec![Term::Inl(box Term::True, Type::Unit)]));
 
         assert_eq!(Err(Error::SumTypeExpected(Type::Unit)), ty);
     }
@@ -822,8 +813,60 @@ mod tests {
     #[test]
     fn projecting_a_tuple() {
         let ctx = Context::new();
-        let ty = type_of(&ctx, &Term::Project(box Term::Tuple(vec![Term::True, Term::False, Term::Unit]), 1));
+        let ty =
+            type_of(&ctx,
+                    &Term::Project(box Term::Tuple(vec![Term::True, Term::False, Term::Unit]),
+                                   1));
 
         assert_eq!(Ok(Type::Bool), ty);
+    }
+
+    #[test]
+    fn precedence_of_tuple_types() {
+        let ty = grammar::parse_Type("{Bool*Bool,Bool+Bool}");
+
+        assert_eq!(Ok(Type::Tuple(vec![Type::Product(box Type::Bool, box Type::Bool),
+                                       Type::Sum(box Type::Bool, box Type::Bool)])),
+                   ty);
+    }
+
+    #[test]
+    fn precedence_of_tuple_types_with_sum() {
+        let ty = grammar::parse_Type("{Bool*Bool,Bool+Bool}+Bool");
+
+        assert_eq!(Ok(Type::Sum(box Type::Tuple(vec![Type::Product(box Type::Bool,
+                                                                   box Type::Bool),
+                                                     Type::Sum(box Type::Bool, box Type::Bool)]),
+                                box Type::Bool)),
+                   ty);
+    }
+
+    #[test]
+    fn nested_tuple_types() {
+        let ty = grammar::parse_Type("{{{Bool,Bool},Unit},Unit}");
+
+        assert_eq!(Ok(Type::Tuple(vec![Type::Tuple(vec![Type::Tuple(vec![Type::Bool,
+                                                                         Type::Bool]),
+                                                        Type::Unit]),
+                                       Type::Unit])),
+                   ty);
+    }
+
+    #[test]
+    fn precedence_of_product_type() {
+        let ty = grammar::parse_Type("Bool*Bool*Bool");
+
+        assert_eq!(Ok(Type::Product(box Type::Bool,
+                                    box Type::Product(box Type::Bool, box Type::Bool))),
+                   ty);
+    }
+
+    #[test]
+    fn precedence_of_product_and_sum_type() {
+        let ty = grammar::parse_Type("Bool*Bool+Bool");
+
+        assert_eq!(Ok(Type::Sum(box Type::Product(box Type::Bool, box Type::Bool),
+                                box Type::Bool)),
+                   ty);
     }
 }
