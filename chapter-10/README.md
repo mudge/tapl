@@ -5,14 +5,13 @@ An implementation in Rust of the [`simplebool`](https://www.cis.upenn.edu/~bcpie
 Note this currently requires nightly Rust in order to use [Box syntax and patterns](https://doc.rust-lang.org/book/box-syntax-and-patterns.html).
 
 ```rust
-#![feature(box_syntax, box_patterns)]
 extern crate simplebool;
 
-use simplebool::{type_of, Term, Context, Type};
+use simplebool::{Context, parse, type_of};
 
 fn main() {
     let ctx = Context::new();
-    let term = Term::App(box Term::Abs("x".into(), Type::Bool, box Term::Var(0)), box Term::If(box Term::True, box Term::True, box Term::False));
+    let term = parse("λx:Bool . 0 if true then true else false").unwrap();
 
     println!("Source term:    {}", term);
     match type_of(&ctx, &term) {

@@ -1,0 +1,43 @@
+use {Term, Type};
+
+grammar;
+
+pub Term: Term = {
+    Application,
+};
+
+Application: Term = {
+    <t1:Terminal> <t2:Terminal> => Term::App(Box::new(t1), Box::new(t2)),
+    Terminal,
+};
+
+Terminal: Term = {
+    "λ" <x:Var> ":" <ty:Type> "." <t:Terminal> => Term::Abs(x, ty, Box::new(t)),
+    "true" => Term::True,
+    "false" => Term::False,
+    "if" <t1:Term> "then" <t2:Term> "else" <t3:Terminal> => Term::If(Box::new(t1), Box::new(t2), Box::new(t3)),
+    Index => Term::Var(<>),
+    "(" <Term> ")",
+};
+
+Type: Type = {
+    ArrowType,
+};
+
+ArrowType: Type = {
+    <ty1:TerminalType> "→" <ty2:ArrowType> => Type::Arrow(Box::new(ty1), Box::new(ty2)),
+    TerminalType,
+};
+
+TerminalType: Type = {
+    "Bool" => Type::Bool,
+    "(" <Type> ")",
+};
+
+Var: String = {
+    r"[a-z]'*" => <>.to_owned(),
+};
+
+Index: usize = {
+    r"[0-9]+" => <>.parse().unwrap()
+};

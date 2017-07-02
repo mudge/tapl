@@ -10,6 +10,10 @@
 use std::error;
 use std::fmt;
 
+pub use grammar::parse_Term as parse;
+
+mod grammar;
+
 /// Available types in this language.
 #[derive(PartialEq, Debug, Clone)]
 pub enum Type {
@@ -216,7 +220,7 @@ fn print_term(ctx: &[(String, Binding)], t: &Term) -> String {
         Term::True => "true".into(),
         Term::False => "false".into(),
         Term::If(box ref t1, box ref t2, box ref t3) => {
-            format!("if {} then {} else {}", t1, t2, t3)
+            format!("if {} then {} else {}", print_term(ctx, t1), print_term(ctx, t2), print_term(ctx, t3))
         }
     }
 }
@@ -470,5 +474,41 @@ mod tests {
                          &Term::If(box Term::Var(0), box Term::True, box Term::False));
 
         assert!(ty.is_err());
+    }
+
+    #[test]
+    fn parsing() {
+        assert_eq!(Ok(Term::True), parse("true"));
+        assert_eq!(Ok(Term::False), parse("false"));
+        assert_eq!(Ok(Term::If(Box::new(Term::True), Box::new(Term::True), Box::new(Term::False))), parse("if true then true else false"));
+        assert_eq!(Ok(Term::Abs("x".into(), Type::Bool, Box::new(Term::Var(0)))), parse("λx:Bool . 0"));
+        assert_eq!(Ok(Term::App(Box::new(Term::Abs("x".into(), Type::Bool, Box::new(Term::Var(0)))), Box::new(Term::True))), parse("λx:Bool . 0 true"));
+    }
+
+    #[test]
+    fn type_of_simple_grammar() {
+        let ctx = Context::new();
+        let term = parse("λx:Bool . 0 true").unwrap();
+        let ty = type_of(&ctx, &term);
+
+        assert_eq!(Ok(Type::Bool), ty);
+    }
+
+    #[test]
+    fn type_of_complex_grammar() {
+        let ctx = Context::new();
+        let term = parse("λz:Bool . (λy:Bool→Bool . (0 if 1 then false else true) (λx:Bool . 0)) true").unwrap();
+        let ty = type_of(&ctx, &term);
+
+        assert_eq!(Ok(Type::Bool), ty);
+    }
+
+    #[test]
+    fn type_of_complex_arrow_type() {
+        let ctx = Context::new();
+        let term = parse("λx:(Bool→Bool)→Bool→Bool . true").unwrap();
+        let ty = type_of(&ctx, &term);
+
+        assert_eq!(Ok(Type::Arrow(box Type::Arrow(box Type::Arrow(box Type::Bool, box Type::Bool), box Type::Arrow(box Type::Bool, box Type::Bool)), box Type::Bool)), ty);
     }
 }
